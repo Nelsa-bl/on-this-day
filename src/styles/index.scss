@@ -1,0 +1,51 @@
+@import './mixins';
+
+:root {
+  --color-main--1: #000;
+  --color-main--2: #fff;
+  --color-dark--1: gray;
+  --color-dark--2: #636767;
+  --color-dark--3: darkgray;
+  --color-light--1: lightgray;
+  --color-light--2: #ededed;
+  --color-light--3: #f5f5f5;
+  --color-added--1: darkseagreen;
+  --color-added--2: darkolivegreen;
+  --color-edited--1: cornflowerblue;
+  --color-edited--2: royalblue;
+  --color-deleted--1: #dc3545;
+  --color-deleted--2: darkred;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 20px 40px;
+  font-family: 'Outfit', sans-serif;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+
+  @include device-size(mobile) {
+    padding: 15px;
+  }
+}
+
+code {
+  font-family: source-code-pro, Menlo, Monaco, Consolas, 'Courier New',
+    monospace;
+}
+
+a {
+  text-decoration: none;
+  color: var(--color-main--1);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--color-dark--1);
+  font-style: italic;
+  opacity: 0.5;
+}

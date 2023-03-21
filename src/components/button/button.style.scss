@@ -1,0 +1,23 @@
+.btn-small {
+  box-shadow: none;
+  padding: 15px 20px;
+  background-color: transparent;
+  border: 1px solid var(--color-light--2);
+  border-radius: 0;
+
+  &:hover {
+    background-color: var(--color-light--2);
+    color: var(--color-main--1);
+    cursor: pointer;
+  }
+}
+
+.btn-active {
+  background-color: var(--color-main--1);
+  color: var(--color-main--2);
+
+  &:hover {
+    background-color: var(--color-main--1);
+    color: var(--color-main--2);
+  }
+}

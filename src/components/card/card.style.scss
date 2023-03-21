@@ -1,0 +1,40 @@
+.card-container {
+  border: 1px solid var(--color-light--2);
+  padding: 20px;
+  background-color: var(--color-light--3);
+
+  h4 {
+    margin-top: 0;
+    margin-bottom: 5px;
+  }
+
+  p {
+    margin-bottom: 0;
+    margin-top: 8px;
+  }
+
+  .email,
+  .company {
+    display: block;
+    margin-bottom: 5px;
+    text-align: center;
+  }
+}
+
+.image {
+  max-width: 100%;
+  height: auto;
+}
+
+.name {
+  display: block;
+  margin-bottom: 10px;
+}
+
+.desc {
+  display: block;
+  margin-bottom: 5px;
+  color: var(--color-dark--1);
+  font-style: italic;
+  font-size: 14px;
+}
