@@ -1,4 +1,4 @@
-# On this day
+# On this day - React app
 
 Show events in history that happened on todays day
 
