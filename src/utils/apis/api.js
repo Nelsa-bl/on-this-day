@@ -1,15 +1,21 @@
 // Import constants
-import { API_URL } from '../constants/constants';
+import { API_URL, ACCESS_TOKEN } from '../constants/constants';
 
 // Import date
 import { month, day } from '../date/date';
 
 // Get data
 export async function getData() {
-  const getDataFromAPI = await fetch(`${API_URL}/${month}/${day}`);
+  const getDataFromAPI = await fetch(`${API_URL}/${month}/${day}`, {
+    headers: {
+      Authorization: `Bearer ${ACCESS_TOKEN}`,
+    },
+  });
+
   if (!getDataFromAPI.ok) {
     throw new Error(`Problem getting data. Status: ${getDataFromAPI.status}`);
   }
+
   const data = await getDataFromAPI.json();
   return data;
 }

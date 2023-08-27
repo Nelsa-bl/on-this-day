@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState } from 'react';
 
 // Import data
 import { getData } from '../../utils/apis/api';
@@ -29,7 +29,6 @@ const List = () => {
       const data = await getData();
       setEvents(data);
       setIsLoading(false);
-      console.log('Data', data);
     } catch (err) {
       // If error then show message
       console.error(err.message);
@@ -43,14 +42,6 @@ const List = () => {
 
   // Sort by year
   const sortByYear = events?.[typeOfEvent]?.sort((a, b) => a.year - b.year);
-
-  // Handle click
-  const handleShowTypeOfEvent = useCallback(
-    (type) => () => {
-      setTypeOfEvent(type);
-    },
-    []
-  );
 
   return (
     <>
