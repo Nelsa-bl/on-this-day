@@ -49,3 +49,13 @@ textarea::placeholder {
   font-style: italic;
   opacity: 0.5;
 }
+
+p {
+  line-height: 23px;
+}
+
+.language-switcher {
+  margin-left: auto;
+  display: flex;
+  justify-content: flex-end;
+}

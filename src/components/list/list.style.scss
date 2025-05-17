@@ -23,3 +23,13 @@
   display: block;
   margin-bottom: 20px;
 }
+
+@media (max-width: 768px) {
+  .sort-container {
+    .btn-small {
+      display: block;
+      width: 100%;
+      margin-bottom: 10px;
+    }
+  }
+}

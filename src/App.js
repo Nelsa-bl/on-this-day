@@ -1,18 +1,25 @@
 // Import components
+import { useState } from 'react';
 import List from './components/list/list.component';
 import { year, month, day, weekday } from './utils/date/date';
+import BackToTopButton from './components/backToTopButton/backToTopButton';
+import Header from './components/header/header';
 
 const App = () => {
-  const weekDayFirstUpperCase =
-    weekday.charAt(0).toUpperCase() + weekday.slice(1);
+  const [language, setLanguage] = useState('bs');
 
   return (
     <div className='App'>
-      <h2>Dogodilo se na današnji dan</h2>
-      <p style={{ marginTop: '-10px' }}>
-        ({weekDayFirstUpperCase}, {day}/{month}/{year})
-      </p>
-      <List />
+      <Header
+        language={language}
+        setLanguage={setLanguage}
+        weekday={weekday}
+        day={day}
+        month={month}
+        year={year}
+      />
+      <List language={language} />
+      <BackToTopButton />
     </div>
   );
 };

@@ -1,24 +1,105 @@
-// Import style
+import { useState, useRef, useEffect } from 'react';
+import { useIsMobile } from '../../utils/hooks/useIsMobile';
 import './card.style.scss';
 
 const Card = ({ data }) => {
-  return (
-    <div className='card-container'>
-      <a href={data.pages[1]?.content_urls?.mobile?.page}>
-        <h4>{data.year}</h4>
-        <span className='name'>{data.pages[1]?.titles?.normalized}</span>
-        {data.pages[1]?.thumbnail?.source && (
-          <img
-            className='image'
-            alt={data.pages[1]?.normalizedtitle}
-            src={data.pages[1]?.thumbnail?.source}
-          />
-        )}
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isClosing, setIsClosing] = useState(false);
+  const modalRef = useRef(null);
+  const isMobile = useIsMobile();
 
-        <span className='desc'>{data.pages[1]?.description}</span>
-        <p>{data.text}</p>
-      </a>
-    </div>
+  const page = data.pages[0];
+
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (modalRef.current && !modalRef.current.contains(e.target)) {
+        closeModal();
+      }
+    };
+
+    if (isModalOpen) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [isModalOpen]);
+
+  const closeModal = () => {
+    setIsClosing(true);
+    setTimeout(() => {
+      setIsModalOpen(false);
+      setIsClosing(false);
+    }, 300); // Match CSS animation duration
+  };
+
+  return (
+    <>
+      <div className='card-container' onClick={() => setIsModalOpen(true)}>
+        <h4>{data.year}</h4>
+        <span className='name'>{page?.titles?.normalized}</span>
+        {page?.thumbnail?.source && (
+          <>
+            <img
+              className='image'
+              alt={page?.normalizedtitle}
+              src={page?.thumbnail?.source}
+            />
+            <span className='desc'>{page?.description}</span>
+          </>
+        )}
+        <br />
+        <b className='ellipsisShort'>{data.text}</b>
+        <br />
+        <small className='ellipsisLong'>{page?.extract}</small>
+      </div>
+
+      {isModalOpen && (
+        <div className='modal-backdrop'>
+          <div
+            className={`${isMobile ? 'bottom-sheet' : 'modal-content'} ${
+              isClosing ? 'closing' : ''
+            }`}
+            ref={modalRef}
+          >
+            <button className='close-btn' onClick={closeModal}>
+              ✕
+            </button>
+            <div className='bottom-sheet-body'>
+              <h2 className='headline-modal'>{page?.titles?.normalized}</h2>
+              <h4 className='small-headline'>{data.year}</h4>
+              {page?.thumbnail?.source && (
+                <img
+                  className='modal-image'
+                  alt={page?.normalizedtitle}
+                  src={page?.thumbnail?.source}
+                />
+              )}
+              <span className='desc'>{page?.description}</span>
+              <p>
+                <b>{data.text}</b>
+              </p>
+              <p>{page?.extract}</p>
+            </div>
+
+            <div className='footer'>
+              <button className='close-bottom-btn' onClick={closeModal}>
+                Close Article
+              </button>
+              <button
+                className='read-more-btn'
+                onClick={() =>
+                  window.open(page?.content_urls?.mobile?.page, '_blank')
+                }
+              >
+                Read Full Article
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 

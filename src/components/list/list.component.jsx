@@ -14,23 +14,21 @@ import useSessionStorage from '../../utils/hooks/useSessionStorage';
 // Import style
 import './list.style.scss';
 
-const List = () => {
+const List = ({ language }) => {
   const [events, setEvents] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
   const [typeOfEvent, setTypeOfEvent] = useSessionStorage(
     'typeOfEvent',
     'births'
   );
-
   // Get Data
   const getDataMap = async () => {
     try {
       setIsLoading(true);
-      const data = await getData();
+      const data = await getData(language);
       setEvents(data);
       setIsLoading(false);
     } catch (err) {
-      // If error then show message
       console.error(err.message);
     }
   };
@@ -38,7 +36,8 @@ const List = () => {
   // Call getDataMap
   useEffect(() => {
     getDataMap();
-  }, []);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [language]);
 
   // Sort by year
   const sortByYear = events?.[typeOfEvent]?.sort((a, b) => a.year - b.year);
@@ -55,7 +54,7 @@ const List = () => {
               activeType={typeOfEvent}
               onClick={setTypeOfEvent}
             >
-              Rođeni
+              Births
             </Button>
             <Button
               eventType='events'
@@ -63,7 +62,15 @@ const List = () => {
               onClick={setTypeOfEvent}
               style={{ marginLeft: '5px' }}
             >
-              Događaji
+              Events
+            </Button>
+            <Button
+              eventType='holidays'
+              activeType={typeOfEvent}
+              onClick={setTypeOfEvent}
+              style={{ marginLeft: '5px' }}
+            >
+              Holidays
             </Button>
           </div>
           <div className='list-container'>

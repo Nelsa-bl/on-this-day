@@ -2,6 +2,8 @@
   border: 1px solid var(--color-light--2);
   padding: 20px;
   background-color: var(--color-light--3);
+  overflow: auto;
+  cursor: pointer;
 
   h4 {
     margin-top: 0;
@@ -37,4 +39,216 @@
   color: var(--color-dark--1);
   font-style: italic;
   font-size: 14px;
+}
+
+.modal-backdrop {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background-color: rgba(0, 0, 0, 0.8);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 999;
+}
+
+.modal-content {
+  background: white;
+  padding: 1.5rem;
+  border-radius: 8px;
+  max-width: 600px;
+  width: 90%;
+  max-height: 80vh;
+  overflow-y: auto;
+  position: relative;
+
+  .modal-image {
+    width: auto;
+    height: auto;
+    margin-top: 1rem;
+    width: 100%;
+  }
+
+  .close-btn {
+    position: absolute;
+    top: 45px;
+    right: 15px;
+    font-size: 1.2rem;
+    background: none;
+    border: none;
+    cursor: pointer;
+  }
+
+  .read-more-btn {
+    margin-top: 2rem;
+    padding: 1rem 1rem;
+    background: black;
+    color: white;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    width: 100%;
+  }
+}
+
+.ellipsisShort {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.ellipsisLong {
+  display: -webkit-box;
+  -webkit-line-clamp: 5;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.noBottomPadding {
+  margin-bottom: 0;
+}
+
+.modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background-color: rgba(0, 0, 0, 0.5);
+  z-index: 9999;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  // override for bottom sheet
+  &.bottom {
+    align-items: flex-end;
+  }
+}
+
+.modal-content,
+.bottom-sheet {
+  background: white;
+  border-radius: 12px;
+  position: relative;
+  padding: 1.5rem;
+  width: 100%;
+  max-height: 100%;
+  overflow-y: auto;
+  height: 100%;
+}
+
+.bottom-sheet {
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+  border-top-left-radius: 16px;
+  border-top-right-radius: 16px;
+  margin-bottom: 0;
+  animation: slideUp 0.3s ease-out;
+
+  @keyframes slideUp {
+    from {
+      transform: translateY(100%);
+    }
+    to {
+      transform: translateY(0);
+    }
+  }
+}
+
+.modal-image {
+  width: 100%;
+  height: auto;
+  margin: 1rem 0;
+  margin-bottom: 0;
+}
+
+.close-btn {
+  position: absolute;
+  top: 10px;
+  right: 15px;
+  font-size: 1.2rem;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.read-more-btn {
+  margin-top: 2rem;
+  padding: 1rem 1rem;
+  background: black;
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  width: 100%;
+}
+
+.close-bottom-btn {
+  margin-top: 2rem;
+  padding: 1rem 1rem;
+  background: lightgray;
+  color: black;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  width: 100%;
+}
+
+.headline-modal {
+  margin-bottom: 5px;
+}
+
+.small-headline {
+  margin-top: 5px;
+  margin-bottom: 5px;
+}
+
+.footer {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  column-gap: 20px;
+}
+
+@media (max-width: 768px) {
+  .footer {
+    grid-template-columns: 1fr;
+    row-gap: 10px;
+    column-gap: 0;
+    margin-top: 50px;
+  }
+  .read-more-btn,
+  .close-bottom-btn {
+    margin-top: 0;
+  }
+}
+
+.bottom-sheet {
+  animation: slideUp 0.3s ease-out forwards;
+
+  &.closing {
+    animation: slideDown 0.3s ease-in forwards;
+  }
+
+  @keyframes slideUp {
+    from {
+      transform: translateY(100%);
+    }
+    to {
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes slideDown {
+    from {
+      transform: translateY(0);
+    }
+    to {
+      transform: translateY(100%);
+    }
+  }
+}
+
+.modal-content {
+  height: 90%;
 }

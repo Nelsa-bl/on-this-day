@@ -1,0 +1,57 @@
+.app-header {
+  display: flex;
+  flex-direction: column;
+
+  .language-switcher {
+    align-self: flex-end;
+    margin-bottom: 0.5rem;
+    position: absolute;
+    top: 40px;
+
+    button {
+      background: none;
+      border: none;
+      cursor: pointer;
+      font-size: 16px;
+      margin-left: 10px;
+      opacity: 1;
+      font-weight: 100;
+
+      padding: 10px 15px;
+      font-size: 12px;
+      cursor: pointer;
+      background-color: #ddd;
+      color: black;
+
+      &:disabled {
+        opacity: 1;
+        font-weight: bold;
+        cursor: pointer;
+        background-color: black;
+        color: white;
+      }
+    }
+  }
+}
+
+.flag-icon {
+  width: 24px;
+  height: auto;
+  display: inline-block;
+}
+
+@media (max-width: 768px) {
+  .language-switcher {
+    position: relative !important;
+    top: 0 !important;
+    display: grid !important;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+    margin-left: 0 !important;
+    width: 100%;
+    button {
+      width: 100%;
+      margin: 0 !important;
+    }
+  }
+}
