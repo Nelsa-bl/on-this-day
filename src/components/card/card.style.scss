@@ -252,3 +252,23 @@
 .modal-content {
   height: 90%;
 }
+
+.card-image-bg {
+  width: 100%;
+  height: 300px;
+  background-size: cover;
+  background-position: center;
+  margin-bottom: 10px;
+}
+
+.modal-image-non {
+  height: 225px;
+  width: auto;
+  justify-content: center;
+  justify-content: center;
+  display: block;
+  margin: 1rem 0;
+  margin-left: auto;
+  margin-right: auto;
+  margin-bottom: 0;
+}

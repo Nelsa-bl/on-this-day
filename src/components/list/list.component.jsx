@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef } from 'react';
+import { translations } from '../../utils/translations/translations';
 
 // Import data
 import { getData } from '../../utils/apis/api';
@@ -21,6 +22,10 @@ const List = ({ language }) => {
     'typeOfEvent',
     'births'
   );
+  const listRef = useRef(null);
+
+  const t = translations[language] || translations.bs;
+
   // Get Data
   const getDataMap = async () => {
     try {
@@ -42,6 +47,30 @@ const List = ({ language }) => {
   // Sort by year
   const sortByYear = events?.[typeOfEvent]?.sort((a, b) => a.year - b.year);
 
+  // Set all .name heights to the tallest one after rendering
+  useEffect(() => {
+    if (!listRef.current) return;
+    const nameEls = Array.from(listRef.current.querySelectorAll('.name'));
+    const grid = window.getComputedStyle(listRef.current);
+    const columns = grid
+      .getPropertyValue('grid-template-columns')
+      .split(' ').length;
+
+    // Reset all heights first
+    nameEls.forEach((el) => (el.style.height = 'auto'));
+
+    for (let i = 0; i < nameEls.length; i += columns) {
+      const rowEls = nameEls.slice(i, i + columns);
+      let maxHeight = 0;
+      rowEls.forEach((el) => {
+        if (el.offsetHeight > maxHeight) maxHeight = el.offsetHeight;
+      });
+      rowEls.forEach((el) => {
+        el.style.height = `${maxHeight}px`;
+      });
+    }
+  }, [sortByYear, typeOfEvent, isLoading]);
+
   return (
     <>
       {isLoading ? (
@@ -54,7 +83,7 @@ const List = ({ language }) => {
               activeType={typeOfEvent}
               onClick={setTypeOfEvent}
             >
-              Births
+              {t.births}
             </Button>
             <Button
               eventType='events'
@@ -62,7 +91,7 @@ const List = ({ language }) => {
               onClick={setTypeOfEvent}
               style={{ marginLeft: '5px' }}
             >
-              Events
+              {t.events}
             </Button>
             <Button
               eventType='holidays'
@@ -70,10 +99,10 @@ const List = ({ language }) => {
               onClick={setTypeOfEvent}
               style={{ marginLeft: '5px' }}
             >
-              Holidays
+              {t.holidays}
             </Button>
           </div>
-          <div className='list-container'>
+          <div className='list-container' ref={listRef}>
             {(sortByYear || []).map((el, index) => (
               <Card key={index} data={el} />
             ))}

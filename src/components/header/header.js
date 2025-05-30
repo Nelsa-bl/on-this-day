@@ -1,22 +1,33 @@
 import './header.style.scss';
+import {
+  translations,
+  bsWeekdays,
+} from '../../utils/translations/translations';
 
 const Header = ({ language, setLanguage, weekday, day, month, year }) => {
-  const weekDayFirstUpperCase =
+  let weekDayFirstUpperCase =
     weekday.charAt(0).toUpperCase() + weekday.slice(1);
+
+  if (language === 'bs') {
+    weekDayFirstUpperCase =
+      bsWeekdays[weekDayFirstUpperCase] || weekDayFirstUpperCase;
+  }
+
+  const t = translations[language] || translations.bs;
 
   return (
     <div className='app-header'>
       <div className='language-switcher'>
         <button onClick={() => setLanguage('bs')} disabled={language === 'bs'}>
-          Serbian
+          {t.serbian}
         </button>
         <button onClick={() => setLanguage('en')} disabled={language === 'en'}>
-          English
+          {t.english}
         </button>
       </div>
-      <h2>Happened on today`s date</h2>
+      <h2>{t.happenedToday}</h2>
       <p style={{ marginTop: '-10px' }}>
-        ({weekDayFirstUpperCase}, {day}/{month}/{year})
+        {t.date(weekDayFirstUpperCase, day, month, year)}
       </p>
     </div>
   );

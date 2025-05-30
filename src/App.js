@@ -1,12 +1,12 @@
 // Import components
-import { useState } from 'react';
 import List from './components/list/list.component';
 import { year, month, day, weekday } from './utils/date/date';
 import BackToTopButton from './components/backToTopButton/backToTopButton';
 import Header from './components/header/header';
+import useSessionStorage from './utils/hooks/useSessionStorage';
 
 const App = () => {
-  const [language, setLanguage] = useState('bs');
+  const [language, setLanguage] = useSessionStorage('language', 'bs'); // Use session storage
 
   return (
     <div className='App'>
