@@ -1,22 +1,40 @@
 @import '../../styles/mixins';
 
 .list-container {
-  display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  column-gap: 10px;
-  row-gap: 20px;
+  position: relative;
+  width: 100%;
+  --columns: 5;
 
   @include device-size(laptop) {
-    grid-template-columns: repeat(4, 1fr);
+    --columns: 4;
   }
 
   @include device-size(tablet) {
-    grid-template-columns: repeat(3, 1fr);
+    --columns: 3;
   }
 
   @include device-size(mobile) {
-    grid-template-columns: repeat(1, 1fr);
+    --columns: 1;
   }
+}
+
+.list-spacer {
+  position: relative;
+  width: 100%;
+}
+
+.list-row {
+  display: grid;
+  grid-template-columns: repeat(var(--columns), 1fr);
+  column-gap: 10px;
+  row-gap: 20px;
+}
+
+.list-loading {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 40px;
 }
 
 .sort-container {

@@ -6,6 +6,14 @@
   align-items: center;
 }
 
+.spinner-inline {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  padding: 12px 0;
+}
+
 .spinner-container {
   display: inline-block;
   width: 50px;
@@ -25,4 +33,10 @@
       -webkit-transform: rotate(360deg);
     }
   }
+}
+
+.spinner-inline .spinner-container {
+  width: 28px;
+  height: 28px;
+  border-width: 2px;
 }

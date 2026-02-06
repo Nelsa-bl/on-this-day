@@ -1,9 +1,11 @@
 // Import style
 import './spinner.style.scss';
 
-const Spinner = () => {
+const Spinner = ({ variant = 'page' }) => {
   return (
-    <div className='spinner-overlay'>
+    <div
+      className={variant === 'inline' ? 'spinner-inline' : 'spinner-overlay'}
+    >
       <div className='spinner-container'></div>
     </div>
   );
