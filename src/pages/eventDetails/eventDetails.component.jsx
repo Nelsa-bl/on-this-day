@@ -184,7 +184,7 @@ const EventDetails = ({ language, events, isLoading: isLoadingList }) => {
                     className='event-details__read'
                     onClick={() => window.open(primaryUrl, '_blank')}
                   >
-                    Read Full Article
+                    {t.readFullArticle}
                   </button>
                 ) : null}
               </div>
@@ -193,9 +193,9 @@ const EventDetails = ({ language, events, isLoading: isLoadingList }) => {
         </div>
 
         <aside className='event-details__related'>
-          <h3 className='event-details__related-title'>Related</h3>
+          <h3 className='event-details__related-title'>{t.related}</h3>
           {relatedPages.length === 0 && relatedArticles.length === 0 ? (
-            <p className='event-details__related-empty'>No related articles.</p>
+            <p className='event-details__related-empty'>{t.noRelations}</p>
           ) : null}
           {relatedPages.map((related) => (
             <button
