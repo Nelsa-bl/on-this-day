@@ -28,6 +28,7 @@
   grid-template-columns: repeat(var(--columns), 1fr);
   column-gap: 10px;
   row-gap: 20px;
+  padding-bottom: 10px;
 }
 
 .list-loading {

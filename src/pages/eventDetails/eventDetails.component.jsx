@@ -10,7 +10,7 @@ const EventDetails = ({ language, events, isLoading: isLoadingList }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const [event, setEvent] = useState(location.state?.event ?? null);
-  const [wikiPage, setWikiPage] = useState(location.state?.wikiPage ?? null);
+  const [wikiPage] = useState(location.state?.wikiPage ?? null);
   const [isLoading, setIsLoading] = useState(!event);
   const [isLoadingRelated, setIsLoadingRelated] = useState(false);
   const [error, setError] = useState(null);
