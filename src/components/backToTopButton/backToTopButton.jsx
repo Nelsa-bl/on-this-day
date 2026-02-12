@@ -14,15 +14,30 @@ const BackToTopButton = () => {
   }, []);
 
   const scrollToTop = () => {
+    const forceTop = () => {
+      window.scrollTo(0, 0);
+      document.documentElement.scrollTop = 0;
+      document.body.scrollTop = 0;
+    };
+
     window.scrollTo({
       top: 0,
       behavior: 'smooth',
     });
+
+    // Keep smooth UX; only force exact top at the end if mobile interrupted.
+    window.setTimeout(() => {
+      if (window.scrollY > 1) forceTop();
+    }, 900);
   };
 
   return (
     isVisible && (
-      <button className='back-to-top' onClick={scrollToTop}>
+      <button
+        className='back-to-top'
+        onClick={scrollToTop}
+        aria-label='Back to top'
+      >
         ↑ Top
       </button>
     )

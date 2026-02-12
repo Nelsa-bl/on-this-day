@@ -1,86 +1,101 @@
-import { useEffect, useState, useRef, useMemo } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useWindowVirtualizer } from '@tanstack/react-virtual';
 import { translations } from '../../utils/translations/translations';
+import {
+  CATEGORY_OPTIONS,
+  categorizeEvent,
+} from '../../utils/events/eventMeta';
 
-// Import components
 import Spinner from '../spinner/spinner.component';
 import Card from '../card/card.component';
 import Button from '../button/button.component';
-
-// Import custom hook
 import useSessionStorage from '../../utils/hooks/useSessionStorage';
 
-// Import style
 import './list.style.scss';
 
-const List = ({ language, events, isLoading }) => {
+const DEFAULT_SCROLL = { births: 0, events: 0, holidays: 0 };
+
+const List = ({ language, events, isLoading, hasFetched, error, onRetry }) => {
+  const navigate = useNavigate();
   const [typeOfEvent, setTypeOfEvent] = useSessionStorage(
     'typeOfEvent',
-    'births'
+    'births',
   );
-  const [visibleCountByType, setVisibleCountByType] = useSessionStorage(
-    'visibleCountByType',
-    { births: 10, events: 10, holidays: 10 }
+  const [viewMode, setViewMode] = useSessionStorage('viewMode', 'grid');
+  const [categoryFilter, setCategoryFilter] = useSessionStorage(
+    'categoryFilter',
+    'all',
   );
   const [scrollYByType, setScrollYByType] = useSessionStorage(
     'scrollYByType',
-    { births: 0, events: 0, holidays: 0 }
+    DEFAULT_SCROLL,
   );
+
   const listRef = useRef(null);
-  const [columns, setColumns] = useState(5);
-  const [rowHeight, setRowHeight] = useState(520);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
-  const rowHeightRef = useRef(null);
-  const [scrollY, setScrollY] = useState(0);
-  const [isRestoring, setIsRestoring] = useState(false);
   const restoredRef = useRef({});
+  const [columns, setColumns] = useState(5);
+  const [isRestoring, setIsRestoring] = useState(false);
 
   const t = translations[language] || translations.bs;
+  const getCategoryLabel = (key) =>
+    key === 'all' ? t.allCategories || 'All' : t[key] || key;
 
-  // Sort by year
   const sortByYear = useMemo(
     () => (events?.[typeOfEvent] || []).slice().sort((a, b) => a.year - b.year),
-    [events, typeOfEvent]
+    [events, typeOfEvent],
   );
 
-  const totalCount = sortByYear.length;
-  const currentVisibleCount = Math.min(
-    visibleCountByType?.[typeOfEvent] ?? 10,
-    totalCount
-  );
-  const visibleItems = sortByYear.slice(0, currentVisibleCount);
+  const filteredItems = useMemo(() => {
+    if (categoryFilter === 'all') return sortByYear;
+    return sortByYear.filter(
+      (event) => categorizeEvent(event) === categoryFilter,
+    );
+  }, [categoryFilter, sortByYear]);
+
+  const visibleItems = filteredItems;
   const rowCount = Math.ceil(visibleItems.length / columns);
 
   const rowVirtualizer = useWindowVirtualizer({
     count: rowCount,
-    estimateSize: () => rowHeight || 520,
+    estimateSize: () => 520,
     overscan: 5,
   });
 
   const virtualRows = rowVirtualizer.getVirtualItems();
 
-  // Improve estimate size once by measuring a real row
-  useEffect(() => {
-    if (rowHeightRef.current) return;
-    if (!listRef.current) return;
-    const firstRow = listRef.current.querySelector('.list-row');
-    if (!firstRow) return;
-    const nextHeight = firstRow.getBoundingClientRect().height;
-    if (nextHeight) {
-      rowHeightRef.current = nextHeight;
-      setRowHeight(nextHeight);
-    }
-  }, [virtualRows, columns, visibleItems.length]);
+  const openEvent = (event, type = typeOfEvent, itemIndex = 0) => {
+    const page = event?.pages?.[0];
+    if (!page?.pageid) return;
+    sessionStorage.setItem('lastClickedPageId', String(page.pageid));
+    sessionStorage.setItem('lastClickedType', String(type));
+    sessionStorage.setItem('lastClickedIndex', String(itemIndex));
+    sessionStorage.setItem('lastClickedScrollY', String(window.scrollY || 0));
 
-  // Ensure we have a default visible count for each type
-  useEffect(() => {
-    setVisibleCountByType((prev) => {
-      if (prev?.[typeOfEvent] != null) return prev;
-      return { ...prev, [typeOfEvent]: 10 };
+    navigate(`/event/${type}/${page.pageid}`, {
+      state: { event, eventType: type, wikiPage: page },
     });
-  }, [typeOfEvent, setVisibleCountByType]);
+  };
 
-  // Keep columns in sync with responsive CSS
+  const randomSurprise = () => {
+    const pools = ['births', 'events', 'holidays']
+      .map((type) => ({
+        type,
+        items: events?.[type] || [],
+      }))
+      .filter((pool) => pool.items.length > 0);
+
+    if (!pools.length) return;
+
+    const selectedPool = pools[Math.floor(Math.random() * pools.length)];
+    const selectedIndex = Math.floor(Math.random() * selectedPool.items.length);
+    const selectedEvent = selectedPool.items[selectedIndex];
+
+    setTypeOfEvent(selectedPool.type);
+    setCategoryFilter('all');
+    openEvent(selectedEvent, selectedPool.type, selectedIndex);
+  };
+
   useEffect(() => {
     if (!listRef.current) return;
 
@@ -98,14 +113,12 @@ const List = ({ language, events, isLoading }) => {
       if (!entries?.length) return;
       updateColumns(entries[0].target);
     });
-    if (listRef.current) observer.observe(listRef.current);
+    observer.observe(listRef.current);
     return () => observer.disconnect();
   }, []);
 
-  // Persist scroll position per type
   useEffect(() => {
     const handleScroll = () => {
-      setScrollY(window.scrollY);
       setScrollYByType((prev) => ({
         ...prev,
         [typeOfEvent]: window.scrollY,
@@ -115,7 +128,6 @@ const List = ({ language, events, isLoading }) => {
     return () => window.removeEventListener('scroll', handleScroll);
   }, [typeOfEvent, setScrollYByType]);
 
-  // Ensure we store position when leaving the list
   useEffect(() => {
     return () => {
       setScrollYByType((prev) => ({
@@ -125,39 +137,46 @@ const List = ({ language, events, isLoading }) => {
     };
   }, [typeOfEvent, setScrollYByType]);
 
-  // Restore scroll position after data loads
+  // Single scroll restoration path to avoid jump on back navigation.
   useEffect(() => {
     if (isLoading) return;
     if (restoredRef.current[typeOfEvent]) return;
+    const lastType = sessionStorage.getItem('lastClickedType');
+    const lastId = sessionStorage.getItem('lastClickedPageId');
+    const lastIndex = sessionStorage.getItem('lastClickedIndex');
+    if (lastType === typeOfEvent && lastId && lastIndex != null) {
+      return;
+    }
     const savedY = scrollYByType?.[typeOfEvent] ?? 0;
-    const targetY = savedY;
-    if (!Number.isNaN(targetY)) window.scrollTo(0, targetY);
+    if (!Number.isNaN(savedY)) window.scrollTo(0, savedY);
     restoredRef.current[typeOfEvent] = true;
   }, [isLoading, typeOfEvent, scrollYByType]);
 
-  // Ensure the clicked card is rendered when returning to the list
   useEffect(() => {
     if (isLoading) return;
     const lastType = sessionStorage.getItem('lastClickedType');
     const lastId = sessionStorage.getItem('lastClickedPageId');
-    const lastIndex = sessionStorage.getItem('lastClickedIndex');
-    if (lastType !== typeOfEvent || !lastId || lastIndex == null) return;
+    const lastIndex = Number(sessionStorage.getItem('lastClickedIndex'));
+    const lastScrollY = Number(sessionStorage.getItem('lastClickedScrollY'));
+    if (lastType !== typeOfEvent || !lastId || Number.isNaN(lastIndex)) {
+      return;
+    }
 
-    const targetIndex = Number(lastIndex);
-    if (Number.isNaN(targetIndex)) return;
-    if (targetIndex < 0) return;
+    // Desktop: restore exact previous viewport for smoother return.
+    if (window.innerWidth > 768 && !Number.isNaN(lastScrollY)) {
+      window.scrollTo(0, lastScrollY);
+      restoredRef.current[typeOfEvent] = true;
+      sessionStorage.removeItem('lastClickedPageId');
+      sessionStorage.removeItem('lastClickedType');
+      sessionStorage.removeItem('lastClickedIndex');
+      sessionStorage.removeItem('lastClickedScrollY');
+      return;
+    }
 
+    if (lastIndex < 0) return;
     setIsRestoring(true);
-    setVisibleCountByType((prev) => {
-      const prevCount = prev?.[typeOfEvent] ?? 10;
-      const neededCount = targetIndex + 1;
-      const nextCount = Math.max(prevCount, neededCount);
-      if (nextCount === prevCount) return prev;
-      return { ...prev, [typeOfEvent]: nextCount };
-    });
-  }, [isLoading, sortByYear, typeOfEvent, setVisibleCountByType]);
+  }, [isLoading, typeOfEvent]);
 
-  // Scroll to the clicked card after it is rendered
   useEffect(() => {
     if (!isRestoring) return;
     const lastType = sessionStorage.getItem('lastClickedType');
@@ -169,14 +188,18 @@ const List = ({ language, events, isLoading }) => {
     }
 
     const targetIndex = Number(lastIndex);
-    if (Number.isNaN(targetIndex)) return;
-    const rowIndex = Math.floor(targetIndex / columns);
-    rowVirtualizer.scrollToIndex(rowIndex, { align: 'center' });
+    if (Number.isNaN(targetIndex)) {
+      setIsRestoring(false);
+      return;
+    }
+
+    if (viewMode === 'grid') {
+      const rowIndex = Math.floor(targetIndex / columns);
+      rowVirtualizer.scrollToIndex(rowIndex, { align: 'center' });
+    }
 
     const centerTarget = () => {
-      const targetEl = listRef.current?.querySelector(
-        `[data-pageid="${lastId}"]`
-      );
+      const targetEl = listRef.current?.querySelector(`[data-pageid="${lastId}"]`);
       if (!targetEl) return false;
 
       targetEl.scrollIntoView({ block: 'center', behavior: 'auto' });
@@ -197,117 +220,205 @@ const List = ({ language, events, isLoading }) => {
     sessionStorage.removeItem('lastClickedPageId');
     sessionStorage.removeItem('lastClickedType');
     sessionStorage.removeItem('lastClickedIndex');
+    sessionStorage.removeItem('lastClickedScrollY');
     setIsRestoring(false);
-  }, [isRestoring, visibleItems.length, typeOfEvent, columns, rowVirtualizer]);
-
-  // Infinite load: increase in batches of 10 when near the end
-  useEffect(() => {
-    const lastRow = virtualRows[virtualRows.length - 1];
-    if (!lastRow) return;
-    if (!listRef.current) return;
-
-    const containerTop = listRef.current.getBoundingClientRect().top;
-    const containerOffset = containerTop + window.scrollY;
-    const lastRowEnd = containerOffset + lastRow.end;
-    const nearEnd =
-      lastRowEnd - window.scrollY <
-      window.innerHeight + Math.max(300, rowHeight);
-
-    if (nearEnd && currentVisibleCount < totalCount && !isLoadingMore) {
-      setIsLoadingMore(true);
-      setVisibleCountByType((prev) => {
-        const prevCount = prev?.[typeOfEvent] ?? 10;
-        const nextCount = Math.min(prevCount + 10, totalCount);
-        if (nextCount === prevCount) return prev;
-        return { ...prev, [typeOfEvent]: nextCount };
-      });
-      setTimeout(() => setIsLoadingMore(false), 200);
-    }
-  }, [
-    virtualRows,
-    rowCount,
-    currentVisibleCount,
-    totalCount,
-    typeOfEvent,
-    setVisibleCountByType,
-    scrollY,
-    rowHeight,
-    isLoadingMore,
-  ]);
+  }, [isRestoring, visibleItems.length, typeOfEvent, columns, rowVirtualizer, viewMode]);
 
   return (
     <>
-      {isLoading ? (
+      {isLoading || !hasFetched ? (
         <Spinner />
       ) : (
         <>
-          <div className='sort-container'>
-            <Button
-              eventType='births'
-              activeType={typeOfEvent}
-              onClick={setTypeOfEvent}
-            >
-              {t.births}
-            </Button>
-            <Button
-              eventType='events'
-              activeType={typeOfEvent}
-              onClick={setTypeOfEvent}
-              style={{ marginLeft: '5px' }}
-            >
-              {t.events}
-            </Button>
-            <Button
-              eventType='holidays'
-              activeType={typeOfEvent}
-              onClick={setTypeOfEvent}
-              style={{ marginLeft: '5px' }}
-            >
-              {t.holidays}
-            </Button>
-          </div>
-          <div className='list-container' ref={listRef}>
-            <div
-              className='list-spacer'
-              style={{ height: `${rowVirtualizer.getTotalSize()}px` }}
-            >
-              {virtualRows.map((virtualRow) => {
-                const startIndex = virtualRow.index * columns;
-                const rowItems = visibleItems.slice(
-                  startIndex,
-                  startIndex + columns
-                );
+          {error ? (
+            <div className='list-error'>
+              <p>{t.fetchFailed}</p>
+              <button className='btn-small btn-active' onClick={onRetry}>
+                {t.retry}
+              </button>
+            </div>
+          ) : null}
 
-                return (
+          <div className='sort-container'>
+            <div className='sort-top-row'>
+              <Button
+                eventType='births'
+                activeType={typeOfEvent}
+                onClick={setTypeOfEvent}
+              >
+                {t.births}
+              </Button>
+              <Button
+                eventType='events'
+                activeType={typeOfEvent}
+                onClick={setTypeOfEvent}
+                style={{ marginLeft: '5px' }}
+              >
+                {t.events}
+              </Button>
+              <Button
+                eventType='holidays'
+                activeType={typeOfEvent}
+                onClick={setTypeOfEvent}
+                style={{ marginLeft: '5px' }}
+              >
+                {t.holidays}
+              </Button>
+              <button
+                className='btn-small random-surprise-btn'
+                onClick={randomSurprise}
+              >
+                {t.randomSurprise}
+              </button>
+            </div>
+
+            <div className='filters-panel single-row'>
+              <div className='category-filter'>
+                <div className='category-header'>
+                  <span className='filters-title'>{t.category}</span>
                   <div
-                    key={virtualRow.key}
-                    ref={rowVirtualizer.measureElement}
-                    data-index={virtualRow.index}
-                    className='list-row'
-                    style={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      width: '100%',
-                      transform: `translateY(${virtualRow.start}px)`,
-                    }}
+                    className='view-toggle-icons'
+                    role='group'
+                    aria-label='View mode'
                   >
-                    {rowItems.map((el, index) => (
-                      <Card
-                        key={`${startIndex + index}-${el?.year}`}
-                        data={el}
-                        eventType={typeOfEvent}
-                        itemIndex={startIndex + index}
-                      />
-                    ))}
+                    <button
+                      className={`icon-toggle ${viewMode === 'grid' ? 'active' : ''}`}
+                      onClick={() => setViewMode('grid')}
+                      aria-label={t.grid}
+                      title={t.grid}
+                    >
+                      <svg viewBox='0 0 24 24' aria-hidden='true'>
+                        <path d='M4 4h7v7H4V4Zm9 0h7v7h-7V4ZM4 13h7v7H4v-7Zm9 0h7v7h-7v-7Z' />
+                      </svg>
+                    </button>
+                    <button
+                      className={`icon-toggle ${viewMode === 'timeline' ? 'active' : ''}`}
+                      onClick={() => setViewMode('timeline')}
+                      aria-label={t.timeline}
+                      title={t.timeline}
+                    >
+                      <svg viewBox='0 0 24 24' aria-hidden='true'>
+                        <path d='M11 3h2v18h-2V3ZM5 7a2 2 0 1 0 0 4 2 2 0 0 0 0-4Zm14 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4ZM5 15a2 2 0 1 0 0 4 2 2 0 0 0 0-4Zm14 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4Z' />
+                      </svg>
+                    </button>
                   </div>
-                );
-              })}
+                </div>
+                <div className='category-mobile-select-wrap'>
+                  <select
+                    className='category-mobile-select'
+                    value={categoryFilter}
+                    onChange={(e) => setCategoryFilter(e.target.value)}
+                    aria-label={t.category}
+                  >
+                    {CATEGORY_OPTIONS.map((key) => (
+                      <option key={key} value={key}>
+                        {getCategoryLabel(key)}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div className='category-chips'>
+                  {CATEGORY_OPTIONS.map((key) => (
+                    <button
+                      key={key}
+                      className={`category-chip ${
+                        categoryFilter === key ? 'active' : ''
+                      }`}
+                      onClick={() => setCategoryFilter(key)}
+                    >
+                      {getCategoryLabel(key)}
+                    </button>
+                  ))}
+                </div>
+              </div>
             </div>
           </div>
-          {currentVisibleCount < totalCount && (
-            <div className='list-loading'>
-              {isLoadingMore ? <Spinner variant='inline' /> : null}
+
+          {visibleItems.length === 0 ? (
+            <div className='list-empty'>
+              <h3>{t.noCategoryMatches}</h3>
+              <p>{t.tryAnotherCategory}</p>
+            </div>
+          ) : (
+            <div className='list-container' ref={listRef}>
+              {viewMode === 'grid' ? (
+                <div
+                  className='list-spacer'
+                  style={{ height: `${rowVirtualizer.getTotalSize()}px` }}
+                >
+                  {virtualRows.map((virtualRow) => {
+                    const startIndex = virtualRow.index * columns;
+                    const rowItems = visibleItems.slice(
+                      startIndex,
+                      startIndex + columns,
+                    );
+
+                    return (
+                      <div
+                        key={virtualRow.key}
+                        ref={rowVirtualizer.measureElement}
+                        data-index={virtualRow.index}
+                        className='list-row'
+                        style={{
+                          position: 'absolute',
+                          top: 0,
+                          left: 0,
+                          width: '100%',
+                          transform: `translateY(${virtualRow.start}px)`,
+                        }}
+                      >
+                        {rowItems.map((el, index) => (
+                          <Card
+                            key={`${startIndex + index}-${el?.year}`}
+                            data={el}
+                            eventType={typeOfEvent}
+                            itemIndex={startIndex + index}
+                          />
+                        ))}
+                      </div>
+                    );
+                  })}
+                </div>
+              ) : (
+                <div className='timeline-vertical'>
+                  {visibleItems.map((el, index) => {
+                    const page = el?.pages?.[0];
+                    const category = categorizeEvent(el);
+                    const side = index % 2 === 0 ? 'left' : 'right';
+                    return (
+                      <button
+                        key={`${el?.year}-${page?.pageid || index}`}
+                        className={`timeline-node timeline-node--${side}`}
+                        data-pageid={page?.pageid}
+                        onClick={() => openEvent(el, typeOfEvent, index)}
+                      >
+                        <span className='timeline-year-pill'>{el.year}</span>
+                        {page?.thumbnail?.source ? (
+                          <span
+                            className='timeline-marker timeline-marker--image'
+                            aria-hidden='true'
+                          >
+                            <img src={page.thumbnail.source} alt='' />
+                          </span>
+                        ) : (
+                          <span className='timeline-marker' aria-hidden='true'>
+                            <svg viewBox='0 0 24 24'>
+                              <path d='M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2Zm0 14a4 4 0 1 1 4-4 4 4 0 0 1-4 4Z' />
+                            </svg>
+                          </span>
+                        )}
+                        <div className='timeline-content-card'>
+                          <h3>{page?.titles?.normalized || el.text}</h3>
+                          <span className='timeline-category'>
+                            {t[category] || category}
+                          </span>
+                          <p>{el.text}</p>
+                        </div>
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
             </div>
           )}
         </>

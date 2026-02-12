@@ -49,6 +49,17 @@
   margin: 1rem 0;
 }
 
+.event-details__hero-wrap {
+  margin: 1rem 0;
+}
+
+.event-details__hero {
+  width: 100%;
+  min-height: 340px;
+  object-fit: cover;
+  border: 1px solid var(--color-light--2);
+}
+
 .event-details__desc {
   display: block;
   margin-bottom: 8px;
@@ -86,6 +97,23 @@
   gap: 24px;
   margin-top: 10px;
   align-items: start;
+}
+
+.event-details__context {
+  border: 1px solid var(--color-light--2);
+  background: #fafafa;
+  padding: 14px;
+  color: var(--color-dark--1);
+  font-size: 14px;
+  font-style: italic;
+}
+
+.event-details__context h3 {
+  margin: 0 0 8px;
+}
+
+.event-details__context p {
+  margin: 0 0;
 }
 
 .event-details__main {

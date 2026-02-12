@@ -1,17 +1,19 @@
 // Import constants
-import { ACCESS_TOKEN } from '../constants/constants';
+import { WIKIMEDIA_API_BASE, WIKIMEDIA_TOKEN } from '../constants/constants';
 
 // Import date
 import { month, day } from '../date/date';
 
 // Get data
-export async function getData(language = 'bs') {
-  const url = `https://api.wikimedia.org/feed/v1/wikipedia/${language}/onthisday/all/${month}/${day}`;
+export async function getData(language = 'bs', signal) {
+  const url = `${WIKIMEDIA_API_BASE}/${language}/onthisday/all/${month}/${day}`;
+  const headers = WIKIMEDIA_TOKEN
+    ? { Authorization: `Bearer ${WIKIMEDIA_TOKEN}` }
+    : undefined;
 
   const getDataFromAPI = await fetch(url, {
-    headers: {
-      Authorization: `Bearer ${ACCESS_TOKEN}`,
-    },
+    headers,
+    signal,
   });
 
   if (!getDataFromAPI.ok) {

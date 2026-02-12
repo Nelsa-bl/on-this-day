@@ -2,6 +2,21 @@
 
 Show events in history that happened on todays day
 
+## Environment variables
+
+Copy `.env.example` to `.env` and set:
+
+- `REACT_APP_WIKIMEDIA_TOKEN` (optional, recommended for authenticated requests)
+- `REACT_APP_WIKIMEDIA_API_BASE` (optional override)
+
+## Features
+
+- Grid and timeline view modes
+- Random event surprise
+- Year range and category filters
+- Event details with media gallery and "Then vs now" context
+- Optional daily browser reminder (PWA notification)
+
 ## Getting Started with Create React App
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).

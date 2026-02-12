@@ -1,11 +1,17 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { translations } from '../../utils/translations/translations';
+import { getThenVsNow } from '../../utils/events/eventMeta';
 import Spinner from '../../components/spinner/spinner.component';
 import noImage from '../../assets/no_image.jpg';
 import './eventDetails.style.scss';
 
-const EventDetails = ({ language, events, isLoading: isLoadingList }) => {
+const EventDetails = ({
+  language,
+  events,
+  isLoading: isLoadingList,
+  appError,
+}) => {
   const { type, pageId } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
@@ -90,7 +96,7 @@ const EventDetails = ({ language, events, isLoading: isLoadingList }) => {
         );
 
         if (isMounted) setRelatedArticles(summaries);
-      } catch (err) {
+      } catch {
         if (isMounted) setRelatedArticles([]);
       } finally {
         if (isMounted) setIsLoadingRelated(false);
@@ -111,11 +117,19 @@ const EventDetails = ({ language, events, isLoading: isLoadingList }) => {
   const primaryText = event?.text || '';
   const primaryYear = event?.year || '';
   const primaryUrl =
-    page?.content_urls?.mobile?.page || wikiPage?.contentUrl || '';
+    page?.content_urls?.desktop?.page ||
+    page?.content_urls?.mobile?.page ||
+    wikiPage?.contentUrl ||
+    '';
+
+  const context = useMemo(
+    () => getThenVsNow(event, type, language),
+    [event, language, type],
+  );
 
   if (isLoading || isLoadingList) return <Spinner />;
 
-  if (error) {
+  if (appError || error) {
     return (
       <div className='event-details'>
         <div className='event-details__header'>
@@ -123,7 +137,7 @@ const EventDetails = ({ language, events, isLoading: isLoadingList }) => {
             {t.backToList}
           </button>
         </div>
-        <p className='event-details__error'>{error}</p>
+        <p className='event-details__error'>{appError || error}</p>
       </div>
     );
   }
@@ -144,19 +158,13 @@ const EventDetails = ({ language, events, isLoading: isLoadingList }) => {
             <h4 className='event-details__year'>{primaryYear}</h4>
           ) : null}
 
-          {primaryImage ? (
+          <div className='event-details__hero-wrap'>
             <img
-              className='event-details__image'
+              className='event-details__hero'
               alt={primaryTitle}
-              src={primaryImage}
+              src={primaryImage || noImage}
             />
-          ) : (
-            <img
-              className='event-details__image'
-              alt='Not available'
-              src={noImage}
-            />
-          )}
+          </div>
 
           {primaryDescription ? (
             <span className='event-details__desc'>{primaryDescription}</span>
@@ -168,6 +176,23 @@ const EventDetails = ({ language, events, isLoading: isLoadingList }) => {
           ) : null}
           {primaryExtract ? (
             <p className='event-details__extract'>{primaryExtract}</p>
+          ) : null}
+
+          {context ? (
+            <section className='event-details__context'>
+              <h3>{t.thenVsNow}</h3>
+              <p>
+                {t.happenedIn} {context.decade}s - {context.yearsAgo}{' '}
+                {t.yearsAgo}
+              </p>
+              <p>
+                {t.era}: {context.era}
+              </p>
+              <p>
+                {t.category}: {t[context.category] || context.category}
+              </p>
+              <p>{context.summary}</p>
+            </section>
           ) : null}
 
           <div className='event-details__content'>
@@ -182,7 +207,9 @@ const EventDetails = ({ language, events, isLoading: isLoadingList }) => {
                 {primaryUrl ? (
                   <button
                     className='event-details__read'
-                    onClick={() => window.open(primaryUrl, '_blank')}
+                    onClick={() =>
+                      window.open(primaryUrl, '_blank', 'noopener,noreferrer')
+                    }
                   >
                     {t.readFullArticle}
                   </button>
@@ -212,6 +239,7 @@ const EventDetails = ({ language, events, isLoading: isLoadingList }) => {
                       wikiTitle,
                     )}`,
                     '_blank',
+                    'noopener,noreferrer',
                   );
                 }
               }}
@@ -252,6 +280,7 @@ const EventDetails = ({ language, events, isLoading: isLoadingList }) => {
                       wikiTitle,
                     )}`,
                     '_blank',
+                    'noopener,noreferrer',
                   );
                 }
               }}

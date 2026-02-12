@@ -11,6 +11,7 @@ const Card = ({ data, eventType, itemIndex }) => {
     sessionStorage.setItem('lastClickedPageId', String(page.pageid));
     sessionStorage.setItem('lastClickedType', String(eventType));
     sessionStorage.setItem('lastClickedIndex', String(itemIndex));
+    sessionStorage.setItem('lastClickedScrollY', String(window.scrollY || 0));
     navigate(`/event/${eventType}/${page.pageid}`, {
       state: { event: data, eventType },
     });
