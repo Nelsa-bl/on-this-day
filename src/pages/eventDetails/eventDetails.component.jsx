@@ -21,9 +21,12 @@ const EventDetails = ({
   const [wikiPage] = useState(location.state?.wikiPage ?? null);
   const [isLoading, setIsLoading] = useState(!event);
   const [isLoadingRelated, setIsLoadingRelated] = useState(false);
+  const [isLoadingYearArticle, setIsLoadingYearArticle] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
   const [error, setError] = useState(null);
   const [relatedArticles, setRelatedArticles] = useState([]);
+  const [randomYearArticle, setRandomYearArticle] = useState(null);
+  const [yearArticleRefreshKey, setYearArticleRefreshKey] = useState(0);
 
   const t = translations[language] || translations.bs;
 
@@ -143,6 +146,71 @@ const EventDetails = ({
     page?.content_urls?.mobile?.page ||
     wikiPage?.contentUrl ||
     '';
+
+  useEffect(() => {
+    const targetYear = Number(primaryYear);
+    if (!Number.isFinite(targetYear)) {
+      setRandomYearArticle(null);
+      return;
+    }
+    let isMounted = true;
+
+    const loadRandomYearArticle = async () => {
+      try {
+        setIsLoadingYearArticle(true);
+        const langCandidates = [language, language === 'bs' ? 'sr' : null].filter(
+          Boolean,
+        );
+
+        for (const lang of langCandidates) {
+          const searchUrl = `https://${lang}.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(
+            String(targetYear),
+          )}&srlimit=30&srnamespace=0&format=json&origin=*`;
+          const searchRes = await fetch(searchUrl);
+          if (!searchRes.ok) continue;
+          const searchData = await searchRes.json();
+          const results = (searchData?.query?.search || []).filter((item) => {
+            const title = item?.title || '';
+            return title && title !== primaryTitle;
+          });
+          if (!results.length) continue;
+
+          const randomResult =
+            results[Math.floor(Math.random() * results.length)];
+          const summaryUrl = `https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(
+            randomResult.title,
+          )}`;
+          const summaryRes = await fetch(summaryUrl);
+          if (!summaryRes.ok) continue;
+          const summaryData = await summaryRes.json();
+          const contentUrl =
+            summaryData?.content_urls?.desktop?.page ||
+            summaryData?.content_urls?.mobile?.page ||
+            '';
+          if (!contentUrl) continue;
+
+          if (!isMounted) return;
+          setRandomYearArticle({
+            title: summaryData?.title || randomResult.title,
+            extract: summaryData?.extract || randomResult?.snippet || '',
+            contentUrl,
+          });
+          return;
+        }
+
+        if (isMounted) setRandomYearArticle(null);
+      } catch {
+        if (isMounted) setRandomYearArticle(null);
+      } finally {
+        if (isMounted) setIsLoadingYearArticle(false);
+      }
+    };
+
+    loadRandomYearArticle();
+    return () => {
+      isMounted = false;
+    };
+  }, [language, pageId, primaryTitle, primaryYear, yearArticleRefreshKey]);
   const shareDateLabel = new Date().toLocaleDateString(
     language === 'bs' ? 'sr-RS' : 'en-US',
     { day: '2-digit', month: 'short', year: 'numeric' },
@@ -359,6 +427,42 @@ const EventDetails = ({
               </div>
             </button>
           ))}
+
+          <section className='event-details__year-article'>
+            <h3 className='event-details__related-title'>{t.yearArticle}</h3>
+            {isLoadingYearArticle ? (
+              <div className='event-details__related-loading'>
+                <Spinner variant='inline' />
+              </div>
+            ) : null}
+            {!isLoadingYearArticle && !randomYearArticle ? (
+              <p className='event-details__related-empty'>{t.noYearArticle}</p>
+            ) : null}
+            {randomYearArticle ? (
+              <button
+                className='event-details__year-article-card'
+                onClick={() =>
+                  window.open(
+                    randomYearArticle.contentUrl,
+                    '_blank',
+                    'noopener,noreferrer',
+                  )
+                }
+              >
+                <strong>{randomYearArticle.title}</strong>
+                {randomYearArticle.extract ? <p>{randomYearArticle.extract}</p> : null}
+                <span>{t.readYearArticle}</span>
+              </button>
+            ) : null}
+            {randomYearArticle ? (
+              <button
+                className='event-details__year-randomize'
+                onClick={() => setYearArticleRefreshKey((prev) => prev + 1)}
+              >
+                {t.randomFromYear}
+              </button>
+            ) : null}
+          </section>
         </aside>
       </div>
     </div>

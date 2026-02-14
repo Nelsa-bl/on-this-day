@@ -264,6 +264,63 @@
   margin-top: 8px;
 }
 
+.event-details__year-article {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px dashed var(--color-light--2);
+}
+
+.event-details__year-article-card {
+  width: 100%;
+  text-align: left;
+  border: none;
+  background: #fff;
+  padding-top: 10px;
+  padding-bottom: 20px;
+  padding-left: 0;
+  padding-right: 0;
+  margin-bottom: 8px;
+  cursor: pointer;
+  display: grid;
+  gap: 6px;
+}
+
+.event-details__year-article-card strong {
+  font-size: 13px;
+  font-weight: 600;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.event-details__year-article-card p {
+  margin: 0;
+  font-size: 12px;
+  color: var(--color-dark--1);
+  display: -webkit-box;
+  -webkit-line-clamp: 4;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.event-details__year-article-card span {
+  font-size: 11px;
+  text-decoration: underline;
+  color: var(--color-dark--2);
+}
+
+.event-details__year-randomize {
+  border: none;
+  background: transparent;
+  padding: 0;
+  margin-top: 4px;
+  font-size: 12px;
+  color: var(--color-dark--1);
+  text-decoration: underline;
+  cursor: pointer;
+}
+
 @media (max-width: 768px) {
   .event-details__content {
     grid-template-columns: 1fr;

@@ -36,6 +36,10 @@ export const translations = {
     oldestFirst: 'Oldest to newest',
     newestFirst: 'Newest to oldest',
     related: 'Related',
+    yearArticle: 'From this year',
+    noYearArticle: 'No article found for this year.',
+    readYearArticle: 'Open article',
+    randomFromYear: 'Try another random one',
     noRelations: 'No related articles',
     noCategoryMatches: 'No items matched this category.',
     tryAnotherCategory: 'Try another category.',
@@ -85,6 +89,10 @@ export const translations = {
     oldestFirst: 'Najstarije ka najnovijem',
     newestFirst: 'Najnovije ka najstarijem',
     related: 'Povezano',
+    yearArticle: 'Iz ove godine',
+    noYearArticle: 'Nema članka za ovu godinu.',
+    readYearArticle: 'Otvori članak',
+    randomFromYear: 'Pokušaj drugi nasumični',
     noRelations: 'Nema povezanih članaka',
     noCategoryMatches: 'Nema rezultata za odabranu kategoriju.',
     tryAnotherCategory: 'Probaj drugu kategoriju.',
@@ -104,5 +112,3 @@ export const bsWeekdays = {
   Saturday: 'Subota',
   Sunday: 'Nedjelja',
 };
-
-
