@@ -40,7 +40,108 @@
 
 .event-details__year {
   margin-top: 0;
+  margin-bottom: 0;
+}
+
+.event-details__meta {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
   margin-bottom: 20px;
+}
+
+.event-details__meta-tags {
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.event-details__share-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: none;
+  background: transparent;
+  color: var(--color-dark--1);
+  font-size: 12px;
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 0;
+  margin-right: 4px;
+}
+
+.event-details__share-inline:disabled {
+  cursor: default;
+  opacity: 0.7;
+}
+
+.event-details__share-inline svg {
+  width: 14px;
+  height: 14px;
+  fill: currentColor;
+}
+
+.event-details__share-inline--centered {
+  margin: 14px auto 0;
+  display: flex;
+  justify-content: center;
+  margin-top: 50px;
+}
+
+.event-details__meta-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  border: 1px solid var(--color-light--2);
+  padding: 3px 6px;
+  background: #f6f6f6;
+}
+
+.event-details__meta-tag-icon {
+  width: 12px;
+  height: 12px;
+  fill: currentColor;
+  flex-shrink: 0;
+}
+
+.event-details__meta-tag--science {
+  color: #0d5a89;
+  background: #e8f6ff;
+  border-color: #b6def6;
+}
+
+.event-details__meta-tag--war {
+  color: #842029;
+  background: #fdeced;
+  border-color: #f2c2c5;
+}
+
+.event-details__meta-tag--sports {
+  color: #0f6235;
+  background: #e8f8ef;
+  border-color: #b8e3ca;
+}
+
+.event-details__meta-tag--culture {
+  color: #5e3d85;
+  background: #f2ebff;
+  border-color: #d9c7f8;
+}
+
+.event-details__meta-tag--politics {
+  color: #805100;
+  background: #fff5e8;
+  border-color: #f3d9b3;
+}
+
+.event-details__meta-tag--discovery {
+  color: #0f5f63;
+  background: #e7f9fa;
+  border-color: #bce7ea;
 }
 
 .event-details__image {
@@ -73,7 +174,7 @@
 
 .event-details__actions {
   display: grid;
-  grid-template-columns: 1fr 2fr;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
   column-gap: 20px;
   margin-top: 20px;
 }
@@ -97,23 +198,6 @@
   gap: 24px;
   margin-top: 10px;
   align-items: start;
-}
-
-.event-details__context {
-  border: 1px solid var(--color-light--2);
-  background: #fafafa;
-  padding: 14px;
-  color: var(--color-dark--1);
-  font-size: 14px;
-  font-style: italic;
-}
-
-.event-details__context h3 {
-  margin: 0 0 8px;
-}
-
-.event-details__context p {
-  margin: 0 0;
 }
 
 .event-details__main {
@@ -195,6 +279,10 @@
   .event-details__actions {
     grid-template-columns: 1fr;
     row-gap: 10px;
+  }
+
+  .event-details__meta {
+    align-items: flex-start;
   }
 }
 

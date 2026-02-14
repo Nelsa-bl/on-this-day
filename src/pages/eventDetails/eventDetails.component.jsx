@@ -1,7 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { translations } from '../../utils/translations/translations';
-import { getThenVsNow } from '../../utils/events/eventMeta';
+import { categorizeEvent } from '../../utils/events/eventMeta';
+import { getCategoryIcon } from '../../utils/events/categoryBadge';
+import { generateShareCardBlob } from '../../utils/share/shareCardImage';
 import Spinner from '../../components/spinner/spinner.component';
 import noImage from '../../assets/no_image.jpg';
 import './eventDetails.style.scss';
@@ -19,6 +21,7 @@ const EventDetails = ({
   const [wikiPage] = useState(location.state?.wikiPage ?? null);
   const [isLoading, setIsLoading] = useState(!event);
   const [isLoadingRelated, setIsLoadingRelated] = useState(false);
+  const [isSharing, setIsSharing] = useState(false);
   const [error, setError] = useState(null);
   const [relatedArticles, setRelatedArticles] = useState([]);
 
@@ -49,6 +52,19 @@ const EventDetails = ({
     if (!event?.pages?.length) return [];
     return event.pages.slice(1, 4);
   }, [event]);
+
+  const toWikiUrl = (title) => {
+    const clean = (title || '').trim().replace(/ /g, '_');
+    if (!clean) return '';
+    const lang = language || 'en';
+    return `https://${lang}.wikipedia.org/wiki/${encodeURIComponent(clean)}`;
+  };
+
+  const openExternal = (url) => {
+    if (!url) return;
+    window.open(url, '_blank', 'noopener,noreferrer');
+  };
+
   const eventTypeLabel = t[type] || type;
   const page = event?.pages?.[0];
 
@@ -116,16 +132,63 @@ const EventDetails = ({
   const primaryExtract = page?.extract || wikiPage?.extract || '';
   const primaryText = event?.text || '';
   const primaryYear = event?.year || '';
+  const numericYear = Number(primaryYear);
+  const yearsAgo = Number.isFinite(numericYear)
+    ? Math.max(0, new Date().getFullYear() - numericYear)
+    : null;
+  const categoryKey = event ? categorizeEvent(event) : '';
+  const categoryIcon = getCategoryIcon(categoryKey);
   const primaryUrl =
     page?.content_urls?.desktop?.page ||
     page?.content_urls?.mobile?.page ||
     wikiPage?.contentUrl ||
     '';
-
-  const context = useMemo(
-    () => getThenVsNow(event, type, language),
-    [event, language, type],
+  const shareDateLabel = new Date().toLocaleDateString(
+    language === 'bs' ? 'sr-RS' : 'en-US',
+    { day: '2-digit', month: 'short', year: 'numeric' },
   );
+
+  const handleShareCard = async () => {
+    if (isSharing) return;
+    try {
+      setIsSharing(true);
+      const blob = await generateShareCardBlob({
+        title: primaryTitle,
+        year: primaryYear,
+        dateLabel: shareDateLabel,
+        categoryLabel: t[categoryKey] || categoryKey,
+      });
+
+      const file = new File([blob], `on-this-day-${primaryYear || 'event'}.png`, {
+        type: 'image/png',
+      });
+
+      if (
+        navigator.share &&
+        navigator.canShare &&
+        navigator.canShare({ files: [file] })
+      ) {
+        await navigator.share({
+          files: [file],
+          title: primaryTitle,
+        });
+        return;
+      }
+
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `on-this-day-${primaryYear || 'event'}.png`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      if (err?.name === 'AbortError') return;
+    } finally {
+      setIsSharing(false);
+    }
+  };
 
   if (isLoading || isLoadingList) return <Spinner />;
 
@@ -154,9 +217,32 @@ const EventDetails = ({
       <div className='event-details__body'>
         <div className='left'>
           <h1 className='event-details__title'>{primaryTitle}</h1>
-          {primaryYear ? (
-            <h4 className='event-details__year'>{primaryYear}</h4>
-          ) : null}
+          <div className='event-details__meta'>
+            {primaryYear ? <h4 className='event-details__year'>{primaryYear}</h4> : <span />}
+            <div className='event-details__meta-tags'>
+              {yearsAgo != null ? (
+                <span className='event-details__meta-tag'>
+                  {yearsAgo} {t.yearsAgo}
+                </span>
+              ) : null}
+              {categoryKey ? (
+                <span
+                  className={`event-details__meta-tag event-details__meta-tag--category event-details__meta-tag--${categoryKey}`}
+                >
+                  <svg
+                    className='event-details__meta-tag-icon'
+                    viewBox={categoryIcon.viewBox}
+                    aria-hidden='true'
+                  >
+                    {categoryIcon.paths.map((path) => (
+                      <path key={path} d={path} />
+                    ))}
+                  </svg>
+                  {t[categoryKey] || categoryKey}
+                </span>
+              ) : null}
+            </div>
+          </div>
 
           <div className='event-details__hero-wrap'>
             <img
@@ -176,23 +262,6 @@ const EventDetails = ({
           ) : null}
           {primaryExtract ? (
             <p className='event-details__extract'>{primaryExtract}</p>
-          ) : null}
-
-          {context ? (
-            <section className='event-details__context'>
-              <h3>{t.thenVsNow}</h3>
-              <p>
-                {t.happenedIn} {context.decade}s - {context.yearsAgo}{' '}
-                {t.yearsAgo}
-              </p>
-              <p>
-                {t.era}: {context.era}
-              </p>
-              <p>
-                {t.category}: {t[context.category] || context.category}
-              </p>
-              <p>{context.summary}</p>
-            </section>
           ) : null}
 
           <div className='event-details__content'>
@@ -215,6 +284,17 @@ const EventDetails = ({
                   </button>
                 ) : null}
               </div>
+              <button
+                className='event-details__share-inline event-details__share-inline--centered'
+                onClick={handleShareCard}
+                disabled={isSharing}
+                type='button'
+              >
+                <svg viewBox='0 0 24 24' aria-hidden='true'>
+                  <path d='M18 16a3 3 0 0 0-2.39 1.19l-6.41-3.2a2.9 2.9 0 0 0 0-1.98l6.41-3.2A3 3 0 1 0 15 7a2.9 2.9 0 0 0 .06.58l-6.41 3.2a3 3 0 1 0 0 2.44l6.41 3.2A3 3 0 1 0 18 16Z' />
+                </svg>
+                {isSharing ? t.generatingShare : t.shareCard}
+              </button>
             </div>
           </div>
         </div>
@@ -231,17 +311,7 @@ const EventDetails = ({
               onClick={() => {
                 const relatedTitle =
                   related?.titles?.normalized || related?.normalizedtitle || '';
-                const wikiTitle = relatedTitle.replace(/ /g, '_');
-                const lang = language || 'en';
-                if (wikiTitle) {
-                  window.open(
-                    `https://${lang}.wikipedia.org/wiki/${encodeURIComponent(
-                      wikiTitle,
-                    )}`,
-                    '_blank',
-                    'noopener,noreferrer',
-                  );
-                }
+                openExternal(toWikiUrl(relatedTitle));
               }}
             >
               <div
@@ -272,17 +342,7 @@ const EventDetails = ({
               key={`search-${related.pageid}`}
               className='event-details__related-card'
               onClick={() => {
-                const wikiTitle = (related.title || '').replace(/ /g, '_');
-                const lang = language || 'en';
-                if (wikiTitle) {
-                  window.open(
-                    `https://${lang}.wikipedia.org/wiki/${encodeURIComponent(
-                      wikiTitle,
-                    )}`,
-                    '_blank',
-                    'noopener,noreferrer',
-                  );
-                }
+                openExternal(related.contentUrl || toWikiUrl(related.title));
               }}
             >
               <div

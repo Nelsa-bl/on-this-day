@@ -1,4 +1,5 @@
 const LAST_REMINDER_DATE_KEY = 'onThisDayLastReminderDate';
+const DEFAULT_REMINDER_TIME = '11:00';
 
 const reminderText = {
   en: {
@@ -56,12 +57,40 @@ export async function sendDailyReminder(language = 'en') {
   localStorage.setItem(LAST_REMINDER_DATE_KEY, today);
 }
 
+function normalizeReminderTime(time) {
+  if (typeof time !== 'string') return DEFAULT_REMINDER_TIME;
+  const match = /^(\d{2}):(\d{2})$/.exec(time);
+  if (!match) return DEFAULT_REMINDER_TIME;
+
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (hour < 0 || hour > 23 || minute < 0 || minute > 59) {
+    return DEFAULT_REMINDER_TIME;
+  }
+
+  return `${String(hour).padStart(2, '0')}:${String(minute).padStart(2, '0')}`;
+}
+
+function isDueNow() {
+  const now = new Date();
+  const [targetHour, targetMinute] = normalizeReminderTime(DEFAULT_REMINDER_TIME)
+    .split(':')
+    .map(Number);
+
+  const nowTotal = now.getHours() * 60 + now.getMinutes();
+  const targetTotal = targetHour * 60 + targetMinute;
+
+  return nowTotal >= targetTotal;
+}
+
 export function startDailyReminder(language = 'en') {
-  sendDailyReminder(language);
-  const intervalId = window.setInterval(
-    () => sendDailyReminder(language),
-    60 * 60 * 1000,
-  );
+  const checkAndNotify = () => {
+    if (!isDueNow()) return;
+    sendDailyReminder(language);
+  };
+
+  checkAndNotify();
+  const intervalId = window.setInterval(checkAndNotify, 60 * 1000);
 
   return () => window.clearInterval(intervalId);
 }

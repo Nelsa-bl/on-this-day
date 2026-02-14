@@ -5,9 +5,10 @@ import { year, month, day, weekday } from './utils/date/date';
 import BackToTopButton from './components/backToTopButton/backToTopButton';
 import Header from './components/header/header';
 import useSessionStorage from './utils/hooks/useSessionStorage';
+import useLocalStorage from './utils/hooks/useLocalStorage';
 import { Routes, Route } from 'react-router-dom';
 import { useEffect, useState } from 'react';
-import { getData } from './utils/apis/api';
+import { getData, getFeaturedData } from './utils/apis/api';
 import {
   requestNotificationPermission,
   startDailyReminder,
@@ -19,8 +20,9 @@ const App = () => {
   const [isLoading, setIsLoading] = useState(false);
   const [hasFetched, setHasFetched] = useState(false);
   const [error, setError] = useState('');
+  const [featuredData, setFeaturedData] = useState(null);
   const [reloadKey, setReloadKey] = useState(0);
-  const [dailyReminderEnabled, setDailyReminderEnabled] = useSessionStorage(
+  const [dailyReminderEnabled, setDailyReminderEnabled] = useLocalStorage(
     'dailyReminderEnabled',
     false
   );
@@ -33,9 +35,13 @@ const App = () => {
         setIsLoading(true);
         setHasFetched(false);
         setError('');
-        const data = await getData(language, controller.signal);
+        const [data, featured] = await Promise.all([
+          getData(language, controller.signal),
+          getFeaturedData(language, controller.signal).catch(() => null),
+        ]);
         if (!isCurrent) return;
         setEvents(data);
+        setFeaturedData(featured);
       } catch (err) {
         if (!isCurrent || err?.name === 'AbortError') return;
         setError(err?.message || 'Unable to load events.');
@@ -90,6 +96,7 @@ const App = () => {
               isLoading={isLoading}
               hasFetched={hasFetched}
               error={error}
+              featuredData={featuredData}
               onRetry={() => setReloadKey((prev) => prev + 1)}
             />
           }

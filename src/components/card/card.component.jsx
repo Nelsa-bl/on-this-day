@@ -1,10 +1,22 @@
 import { useNavigate } from 'react-router-dom';
 import noImage from '../../assets/no_image.jpg';
+import { translations } from '../../utils/translations/translations';
+import { categorizeEvent } from '../../utils/events/eventMeta';
+import { getCategoryIcon } from '../../utils/events/categoryBadge';
 import './card.style.scss';
 
-const Card = ({ data, eventType, itemIndex }) => {
+const Card = ({ data, eventType, itemIndex, language }) => {
   const navigate = useNavigate();
   const page = data.pages[0];
+  const t = translations[language] || translations.bs;
+  const eventYear = Number(data?.year);
+  const currentYear = new Date().getFullYear();
+  const yearsAgo =
+    Number.isFinite(eventYear) && eventYear > 0 && eventYear <= currentYear
+      ? currentYear - eventYear
+      : null;
+  const category = categorizeEvent(data);
+  const categoryIcon = getCategoryIcon(category);
 
   const handleOpen = () => {
     if (!page?.pageid) return;
@@ -26,7 +38,14 @@ const Card = ({ data, eventType, itemIndex }) => {
       role='button'
       tabIndex={0}
     >
-      <h4>{data.year}</h4>
+      <div className='card-year-row'>
+        <h4>{data.year}</h4>
+        {yearsAgo != null ? (
+          <span className='years-ago-badge'>
+            {yearsAgo} {t.yearsAgo}
+          </span>
+        ) : null}
+      </div>
       <span className='name'>{page?.titles?.normalized}</span>
 
       <div
@@ -39,7 +58,22 @@ const Card = ({ data, eventType, itemIndex }) => {
             ? {}
             : { opacity: 0.3, border: '1px solid gray' }),
         }}
-      />
+      >
+        <span
+          className={`card-category-badge card-image-category-badge card-category-badge--${category}`}
+        >
+          <svg
+            className='card-category-badge__icon'
+            viewBox={categoryIcon.viewBox}
+            aria-hidden='true'
+          >
+            {categoryIcon.paths.map((path) => (
+              <path key={path} d={path} />
+            ))}
+          </svg>
+          {t[category] || category}
+        </span>
+      </div>
       <span className='desc'>{page?.description}</span>
 
       <br />

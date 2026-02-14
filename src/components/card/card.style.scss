@@ -33,6 +33,81 @@
   margin-bottom: 10px;
 }
 
+.card-year-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.card-year-row h4 {
+  margin: 0;
+}
+
+.years-ago-badge {
+  font-size: 11px;
+  border: 1px solid var(--color-light--2);
+  background: white;
+  color: var(--color-dark--2);
+  padding: 3px 8px;
+  white-space: nowrap;
+}
+
+.card-category-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  border: 1px solid var(--color-light--2);
+  padding: 3px 6px;
+  background: #f6f6f6;
+  white-space: nowrap;
+}
+
+.card-category-badge__icon {
+  width: 12px;
+  height: 12px;
+  fill: currentColor;
+  flex-shrink: 0;
+}
+
+.card-category-badge--science {
+  color: #0d5a89;
+  background: #e8f6ff;
+  border-color: #b6def6;
+}
+
+.card-category-badge--war {
+  color: #842029;
+  background: #fdeced;
+  border-color: #f2c2c5;
+}
+
+.card-category-badge--sports {
+  color: #0f6235;
+  background: #e8f8ef;
+  border-color: #b8e3ca;
+}
+
+.card-category-badge--culture {
+  color: #5e3d85;
+  background: #f2ebff;
+  border-color: #d9c7f8;
+}
+
+.card-category-badge--politics {
+  color: #805100;
+  background: #fff5e8;
+  border-color: #f3d9b3;
+}
+
+.card-category-badge--discovery {
+  color: #0f5f63;
+  background: #e7f9fa;
+  border-color: #bce7ea;
+}
+
 .desc {
   display: block;
   margin-bottom: 5px;
@@ -254,11 +329,19 @@
 }
 
 .card-image-bg {
+  position: relative;
   width: 100%;
   height: 300px;
   background-size: cover;
   background-position: center;
   margin-bottom: 10px;
+}
+
+.card-image-category-badge {
+  position: absolute;
+  right: 8px;
+  bottom: 8px;
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.2);
 }
 
 .modal-image-non {

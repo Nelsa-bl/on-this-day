@@ -6,6 +6,7 @@ import {
   CATEGORY_OPTIONS,
   categorizeEvent,
 } from '../../utils/events/eventMeta';
+import { getCategoryIcon } from '../../utils/events/categoryBadge';
 
 import Spinner from '../spinner/spinner.component';
 import Card from '../card/card.component';
@@ -16,7 +17,15 @@ import './list.style.scss';
 
 const DEFAULT_SCROLL = { births: 0, events: 0, holidays: 0 };
 
-const List = ({ language, events, isLoading, hasFetched, error, onRetry }) => {
+const List = ({
+  language,
+  events,
+  isLoading,
+  hasFetched,
+  error,
+  featuredData,
+  onRetry,
+}) => {
   const navigate = useNavigate();
   const [typeOfEvent, setTypeOfEvent] = useSessionStorage(
     'typeOfEvent',
@@ -26,6 +35,10 @@ const List = ({ language, events, isLoading, hasFetched, error, onRetry }) => {
   const [categoryFilter, setCategoryFilter] = useSessionStorage(
     'categoryFilter',
     'all',
+  );
+  const [sortOrder, setSortOrder] = useSessionStorage(
+    'sortOrder',
+    'oldestFirst',
   );
   const [scrollYByType, setScrollYByType] = useSessionStorage(
     'scrollYByType',
@@ -42,8 +55,13 @@ const List = ({ language, events, isLoading, hasFetched, error, onRetry }) => {
     key === 'all' ? t.allCategories || 'All' : t[key] || key;
 
   const sortByYear = useMemo(
-    () => (events?.[typeOfEvent] || []).slice().sort((a, b) => a.year - b.year),
-    [events, typeOfEvent],
+    () =>
+      (events?.[typeOfEvent] || [])
+        .slice()
+        .sort((a, b) =>
+          sortOrder === 'newestFirst' ? b.year - a.year : a.year - b.year,
+        ),
+    [events, sortOrder, typeOfEvent],
   );
 
   const filteredItems = useMemo(() => {
@@ -55,6 +73,107 @@ const List = ({ language, events, isLoading, hasFetched, error, onRetry }) => {
 
   const visibleItems = filteredItems;
   const rowCount = Math.ceil(visibleItems.length / columns);
+
+  const onThisDayFlat = useMemo(
+    () =>
+      ['events', 'births', 'holidays']
+        .flatMap((key) => events?.[key] || [])
+        .filter((item) => item?.pages?.[0]?.titles?.normalized),
+    [events],
+  );
+
+  const mostReadItems = useMemo(
+    () => {
+      const feedItems = (featuredData?.mostread?.articles || [])
+        .filter((item) => item?.title && item?.content_urls?.desktop?.page)
+        .map((item) => ({
+          title: item.titles?.normalized || item.title,
+          url: item.content_urls.desktop.page,
+          rank: item?.rank,
+        }));
+
+      if (feedItems.length > 0) return feedItems.slice(0, 6);
+
+      // Fallback from local on-this-day data when feed mostread is unavailable.
+      return onThisDayFlat
+        .map((item) => ({
+          title: item.pages[0].titles.normalized,
+          url:
+            item.pages[0]?.content_urls?.desktop?.page ||
+            item.pages[0]?.content_urls?.mobile?.page ||
+            '',
+        }))
+        .filter((item) => item.title && item.url)
+        .slice(0, 6);
+    },
+    [featuredData, onThisDayFlat],
+  );
+
+  const newsItems = useMemo(
+    () => {
+      const feedItems = (featuredData?.news || [])
+        .map((item) => {
+          const firstLink = item?.links?.[0] || {};
+          return {
+            key: item?.story || firstLink?.title,
+            title:
+              firstLink?.titles?.normalized ||
+              firstLink?.title ||
+              item?.story ||
+              '',
+            url: firstLink?.content_urls?.desktop?.page || '',
+            summary: item?.story || '',
+          };
+        })
+        .filter((item) => item.title && item.url);
+
+      if (feedItems.length > 0) return feedItems.slice(0, 5);
+
+      // Fallback from local on-this-day data when feed news is unavailable.
+      return onThisDayFlat
+        .slice(6)
+        .map((item, index) => ({
+          key: `${item?.year}-${index}`,
+          title: item.pages[0].titles.normalized,
+          url:
+            item.pages[0]?.content_urls?.desktop?.page ||
+            item.pages[0]?.content_urls?.mobile?.page ||
+            '',
+          summary: item.text || '',
+        }))
+        .filter((item) => item.title && item.url)
+        .slice(0, 5);
+    },
+    [featuredData, onThisDayFlat],
+  );
+
+  const featuredArticle = useMemo(() => {
+    const tfa = featuredData?.tfa;
+    const title =
+      tfa?.titles?.normalized || tfa?.title || tfa?.displaytitle || '';
+    const url =
+      tfa?.content_urls?.desktop?.page || tfa?.content_urls?.mobile?.page || '';
+    const summary = tfa?.extract || tfa?.description || '';
+    if (title && url) return { title, url, summary };
+
+    // Fallback from local on-this-day data when TFA is unavailable.
+    const fallback = onThisDayFlat.find(
+      (item) =>
+        item?.pages?.[0]?.titles?.normalized &&
+        (item?.pages?.[0]?.content_urls?.desktop?.page ||
+          item?.pages?.[0]?.content_urls?.mobile?.page),
+    );
+
+    if (!fallback) return null;
+    return {
+      title: fallback.pages[0].titles.normalized,
+      url:
+        fallback.pages[0]?.content_urls?.desktop?.page ||
+        fallback.pages[0]?.content_urls?.mobile?.page ||
+        '',
+      summary: fallback?.text || '',
+    };
+  }, [featuredData, onThisDayFlat]);
 
   const rowVirtualizer = useWindowVirtualizer({
     count: rowCount,
@@ -276,31 +395,33 @@ const List = ({ language, events, isLoading, hasFetched, error, onRetry }) => {
               <div className='category-filter'>
                 <div className='category-header'>
                   <span className='filters-title'>{t.category}</span>
-                  <div
-                    className='view-toggle-icons'
-                    role='group'
-                    aria-label='View mode'
-                  >
-                    <button
-                      className={`icon-toggle ${viewMode === 'grid' ? 'active' : ''}`}
-                      onClick={() => setViewMode('grid')}
-                      aria-label={t.grid}
-                      title={t.grid}
+                  <div className='category-controls'>
+                    <div
+                      className='view-toggle-icons'
+                      role='group'
+                      aria-label='View mode'
                     >
-                      <svg viewBox='0 0 24 24' aria-hidden='true'>
-                        <path d='M4 4h7v7H4V4Zm9 0h7v7h-7V4ZM4 13h7v7H4v-7Zm9 0h7v7h-7v-7Z' />
-                      </svg>
-                    </button>
-                    <button
-                      className={`icon-toggle ${viewMode === 'timeline' ? 'active' : ''}`}
-                      onClick={() => setViewMode('timeline')}
-                      aria-label={t.timeline}
-                      title={t.timeline}
-                    >
-                      <svg viewBox='0 0 24 24' aria-hidden='true'>
-                        <path d='M11 3h2v18h-2V3ZM5 7a2 2 0 1 0 0 4 2 2 0 0 0 0-4Zm14 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4ZM5 15a2 2 0 1 0 0 4 2 2 0 0 0 0-4Zm14 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4Z' />
-                      </svg>
-                    </button>
+                      <button
+                        className={`icon-toggle ${viewMode === 'grid' ? 'active' : ''}`}
+                        onClick={() => setViewMode('grid')}
+                        aria-label={t.grid}
+                        title={t.grid}
+                      >
+                        <svg viewBox='0 0 24 24' aria-hidden='true'>
+                          <path d='M4 4h7v7H4V4Zm9 0h7v7h-7V4ZM4 13h7v7H4v-7Zm9 0h7v7h-7v-7Z' />
+                        </svg>
+                      </button>
+                      <button
+                        className={`icon-toggle ${viewMode === 'timeline' ? 'active' : ''}`}
+                        onClick={() => setViewMode('timeline')}
+                        aria-label={t.timeline}
+                        title={t.timeline}
+                      >
+                        <svg viewBox='0 0 24 24' aria-hidden='true'>
+                          <path d='M11 3h2v18h-2V3ZM5 7a2 2 0 1 0 0 4 2 2 0 0 0 0-4Zm14 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4ZM5 15a2 2 0 1 0 0 4 2 2 0 0 0 0-4Zm14 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4Z' />
+                        </svg>
+                      </button>
+                    </div>
                   </div>
                 </div>
                 <div className='category-mobile-select-wrap'>
@@ -317,18 +438,31 @@ const List = ({ language, events, isLoading, hasFetched, error, onRetry }) => {
                     ))}
                   </select>
                 </div>
-                <div className='category-chips'>
-                  {CATEGORY_OPTIONS.map((key) => (
-                    <button
-                      key={key}
-                      className={`category-chip ${
-                        categoryFilter === key ? 'active' : ''
-                      }`}
-                      onClick={() => setCategoryFilter(key)}
+                <div className='category-row'>
+                  <div className='category-chips'>
+                    {CATEGORY_OPTIONS.map((key) => (
+                      <button
+                        key={key}
+                        className={`category-chip ${
+                          categoryFilter === key ? 'active' : ''
+                        }`}
+                        onClick={() => setCategoryFilter(key)}
+                      >
+                        {getCategoryLabel(key)}
+                      </button>
+                    ))}
+                  </div>
+                  <div className='category-sort-wrap'>
+                    <select
+                      className='sort-order-select'
+                      value={sortOrder}
+                      onChange={(e) => setSortOrder(e.target.value)}
+                      aria-label={t.sortOrder}
                     >
-                      {getCategoryLabel(key)}
-                    </button>
-                  ))}
+                      <option value='oldestFirst'>{t.oldestFirst}</option>
+                      <option value='newestFirst'>{t.newestFirst}</option>
+                    </select>
+                  </div>
                 </div>
               </div>
             </div>
@@ -373,6 +507,7 @@ const List = ({ language, events, isLoading, hasFetched, error, onRetry }) => {
                             data={el}
                             eventType={typeOfEvent}
                             itemIndex={startIndex + index}
+                            language={language}
                           />
                         ))}
                       </div>
@@ -384,6 +519,7 @@ const List = ({ language, events, isLoading, hasFetched, error, onRetry }) => {
                   {visibleItems.map((el, index) => {
                     const page = el?.pages?.[0];
                     const category = categorizeEvent(el);
+                    const categoryIcon = getCategoryIcon(category);
                     const side = index % 2 === 0 ? 'left' : 'right';
                     return (
                       <button
@@ -409,7 +545,18 @@ const List = ({ language, events, isLoading, hasFetched, error, onRetry }) => {
                         )}
                         <div className='timeline-content-card'>
                           <h3>{page?.titles?.normalized || el.text}</h3>
-                          <span className='timeline-category'>
+                          <span
+                            className={`timeline-category timeline-category--${category}`}
+                          >
+                            <svg
+                              className='timeline-category__icon'
+                              viewBox={categoryIcon.viewBox}
+                              aria-hidden='true'
+                            >
+                              {categoryIcon.paths.map((path) => (
+                                <path key={path} d={path} />
+                              ))}
+                            </svg>
                             {t[category] || category}
                           </span>
                           <p>{el.text}</p>
@@ -421,6 +568,77 @@ const List = ({ language, events, isLoading, hasFetched, error, onRetry }) => {
               )}
             </div>
           )}
+
+          {mostReadItems.length > 0 || newsItems.length > 0 || featuredArticle ? (
+            <section className='featured-section'>
+              <span className='featured-section__label'>{t.bonusInfo}</span>
+              <section className='featured-panel'>
+                {mostReadItems.length > 0 ? (
+                  <div className='featured-block'>
+                    <h3>{t.trendingToday}</h3>
+                    <div className='featured-most-read'>
+                      {mostReadItems.map((item, index) => (
+                      <button
+                        key={`${item.title}-${index}`}
+                        className='featured-most-read-item'
+                        onClick={() =>
+                          window.open(item.url, '_blank', 'noopener,noreferrer')
+                        }
+                      >
+                          <span className='featured-rank'>#{index + 1}</span>
+                          <span className='featured-title'>
+                            {item.titles?.normalized || item.title}
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+
+                {newsItems.length > 0 ? (
+                  <div className='featured-block'>
+                    <h3>{t.inTheNews}</h3>
+                    <div className='featured-news-strip'>
+                      {newsItems.map((item, index) => (
+                        <button
+                          key={`${item.key}-${index}`}
+                          className='featured-news-chip'
+                          onClick={() =>
+                            window.open(item.url, '_blank', 'noopener,noreferrer')
+                          }
+                          title={item.summary || item.title}
+                        >
+                          {item.title}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                ) : null}
+
+                {featuredArticle ? (
+                  <div className='featured-block'>
+                    <h3>{t.featuredStory}</h3>
+                    <button
+                      className='featured-story-card'
+                      onClick={() =>
+                        window.open(
+                          featuredArticle.url,
+                          '_blank',
+                          'noopener,noreferrer',
+                        )
+                      }
+                      title={featuredArticle.summary || featuredArticle.title}
+                    >
+                      <strong>{featuredArticle.title}</strong>
+                      {featuredArticle.summary ? (
+                        <p>{featuredArticle.summary}</p>
+                      ) : null}
+                    </button>
+                  </div>
+                ) : null}
+              </section>
+            </section>
+          ) : null}
         </>
       )}
     </>
