@@ -1,0 +1,6 @@
+[build]
+  publish = "build"
+
+[[edge_functions]]
+  function = "share-event"
+  path = "/share/event/*"

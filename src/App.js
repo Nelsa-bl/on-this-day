@@ -9,6 +9,7 @@ import useLocalStorage from './utils/hooks/useLocalStorage';
 import { Routes, Route } from 'react-router-dom';
 import { useEffect, useState } from 'react';
 import { getData, getFeaturedData } from './utils/apis/api';
+import { enrichEventsWithWikidataCategory } from './utils/events/wikidataCategory';
 import {
   requestNotificationPermission,
   startDailyReminder,
@@ -42,6 +43,20 @@ const App = () => {
         if (!isCurrent) return;
         setEvents(data);
         setFeaturedData(featured);
+
+        // Run category enrichment in background so first paint is not blocked.
+        if (process.env.NODE_ENV !== 'test') {
+          enrichEventsWithWikidataCategory({
+            data,
+            language,
+            signal: controller.signal,
+          })
+            .then((enrichedData) => {
+              if (!isCurrent || controller.signal.aborted || !enrichedData) return;
+              setEvents({ ...enrichedData });
+            })
+            .catch(() => {});
+        }
       } catch (err) {
         if (!isCurrent || err?.name === 'AbortError') return;
         setError(err?.message || 'Unable to load events.');

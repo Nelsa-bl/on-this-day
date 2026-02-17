@@ -1,10 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { translations } from '../../utils/translations/translations';
-import { categorizeEvent } from '../../utils/events/eventMeta';
+import {
+  categorizeEvent,
+  getCategoryClassification,
+  getPrimaryPage,
+} from '../../utils/events/eventMeta';
 import { getCategoryIcon } from '../../utils/events/categoryBadge';
 import { generateShareCardBlob } from '../../utils/share/shareCardImage';
-import Spinner from '../../components/spinner/spinner.component';
+import Skeleton from '../../components/skeleton/skeleton.component';
 import noImage from '../../assets/no_image.jpg';
 import './eventDetails.style.scss';
 
@@ -20,7 +24,7 @@ const EventDetails = ({
   const [event, setEvent] = useState(location.state?.event ?? null);
   const [wikiPage] = useState(location.state?.wikiPage ?? null);
   const [isLoading, setIsLoading] = useState(!event);
-  const [isLoadingRelated, setIsLoadingRelated] = useState(false);
+  const [isLoadingRelated, setIsLoadingRelated] = useState(true);
   const [isLoadingYearArticle, setIsLoadingYearArticle] = useState(false);
   const [isSharing, setIsSharing] = useState(false);
   const [error, setError] = useState(null);
@@ -51,10 +55,12 @@ const EventDetails = ({
     window.scrollTo(0, 0);
   }, [pageId, type]);
 
-  const relatedPages = useMemo(() => {
-    if (!event?.pages?.length) return [];
-    return event.pages.slice(1, 4);
-  }, [event]);
+  const routeMatchedPage = useMemo(() => {
+    if (!event?.pages?.length) return null;
+    return (
+      event.pages.find((item) => String(item?.pageid) === String(pageId)) || null
+    );
+  }, [event, pageId]);
 
   const toWikiUrl = (title) => {
     const clean = (title || '').trim().replace(/ /g, '_');
@@ -69,7 +75,19 @@ const EventDetails = ({
   };
 
   const eventTypeLabel = t[type] || type;
-  const page = event?.pages?.[0];
+  const page =
+    routeMatchedPage ||
+    wikiPage ||
+    getPrimaryPage(event) ||
+    event?.pages?.[0] ||
+    null;
+  const relatedPages = useMemo(() => {
+    if (!event?.pages?.length) return [];
+    const selectedPageId = String(page?.pageid || '');
+    return event.pages
+      .filter((item) => String(item?.pageid || '') !== selectedPageId)
+      .slice(0, 3);
+  }, [event, page]);
 
   useEffect(() => {
     let isMounted = true;
@@ -78,11 +96,19 @@ const EventDetails = ({
       page?.titles?.normalized ||
       page?.normalizedtitle ||
       null;
-    if (!title) return () => {};
+    if (!title) {
+      setRelatedArticles([]);
+      setIsLoadingRelated(false);
+      return () => {
+        isMounted = false;
+      };
+    }
+
+    setIsLoadingRelated(true);
+    setRelatedArticles([]);
 
     const loadRelated = async () => {
       try {
-        setIsLoadingRelated(true);
         const baseTitle = title.replace(/_/g, ' ');
         const lang = language || 'en';
         const searchUrl = `https://${lang}.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(
@@ -140,6 +166,13 @@ const EventDetails = ({
     ? Math.max(0, new Date().getFullYear() - numericYear)
     : null;
   const categoryKey = event ? categorizeEvent(event) : '';
+  const categoryMeta = event
+    ? getCategoryClassification(event)
+    : { category: '', confidence: 0, source: '' };
+  const categoryDebugTitle =
+    process.env.NODE_ENV !== 'production'
+      ? `${categoryMeta.category} | ${categoryMeta.source} | ${categoryMeta.confidence}`
+      : undefined;
   const categoryIcon = getCategoryIcon(categoryKey);
   const primaryUrl =
     page?.content_urls?.desktop?.page ||
@@ -220,28 +253,51 @@ const EventDetails = ({
     if (isSharing) return;
     try {
       setIsSharing(true);
+      const detailUrl = `${window.location.origin}${window.location.pathname}${window.location.search}`;
+      const sharePath =
+        type && pageId
+          ? `/share/event/${encodeURIComponent(type)}/${encodeURIComponent(
+              pageId,
+            )}?lang=${encodeURIComponent(language || 'en')}`
+          : '';
+      const shareUrl = sharePath
+        ? `${window.location.origin}${sharePath}`
+        : detailUrl;
+      const summarySource = primaryText || primaryExtract || primaryDescription || '';
+      const cleanSummary = summarySource.replace(/\s+/g, ' ').trim();
+      const summary =
+        cleanSummary.length > 220
+          ? `${cleanSummary.slice(0, 217).trimEnd()}...`
+          : cleanSummary;
+      const shareText = [
+        primaryYear ? `${primaryYear} - ${primaryTitle}` : primaryTitle,
+        summary,
+      ]
+        .filter(Boolean)
+        .join('\n\n');
+
+      if (navigator.share) {
+        await navigator.share({
+          title: primaryTitle,
+          text: shareText,
+          url: shareUrl,
+        });
+        return;
+      }
+
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(
+          `${shareText}\n\n${shareUrl}`.trim(),
+        );
+        return;
+      }
+
       const blob = await generateShareCardBlob({
         title: primaryTitle,
         year: primaryYear,
         dateLabel: shareDateLabel,
         categoryLabel: t[categoryKey] || categoryKey,
       });
-
-      const file = new File([blob], `on-this-day-${primaryYear || 'event'}.png`, {
-        type: 'image/png',
-      });
-
-      if (
-        navigator.share &&
-        navigator.canShare &&
-        navigator.canShare({ files: [file] })
-      ) {
-        await navigator.share({
-          files: [file],
-          title: primaryTitle,
-        });
-        return;
-      }
 
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
@@ -258,9 +314,16 @@ const EventDetails = ({
     }
   };
 
-  if (isLoading || isLoadingList) return <Spinner />;
+  const handleRandomizeYearArticle = () => {
+    if (isLoadingYearArticle) return;
+    setRandomYearArticle(null);
+    setIsLoadingYearArticle(true);
+    setYearArticleRefreshKey((prev) => prev + 1);
+  };
 
-  if (appError || error) {
+  const isPageLoading = isLoading || isLoadingList;
+
+  if (!isPageLoading && (appError || error)) {
     return (
       <div className='event-details'>
         <div className='event-details__header'>
@@ -284,18 +347,31 @@ const EventDetails = ({
 
       <div className='event-details__body'>
         <div className='left'>
-          <h1 className='event-details__title'>{primaryTitle}</h1>
+          <h1 className='event-details__title'>
+            {isPageLoading ? <Skeleton width='68%' height='30px' /> : primaryTitle}
+          </h1>
           <div className='event-details__meta'>
-            {primaryYear ? <h4 className='event-details__year'>{primaryYear}</h4> : <span />}
+            {isPageLoading ? (
+              <h4 className='event-details__year'>
+                <Skeleton width='52px' height='20px' />
+              </h4>
+            ) : primaryYear ? (
+              <h4 className='event-details__year'>{primaryYear}</h4>
+            ) : (
+              <span />
+            )}
             <div className='event-details__meta-tags'>
-              {yearsAgo != null ? (
+              {!isPageLoading && yearsAgo != null ? (
                 <span className='event-details__meta-tag'>
                   {yearsAgo} {t.yearsAgo}
                 </span>
               ) : null}
-              {categoryKey ? (
+              {!isPageLoading && categoryKey ? (
                 <span
                   className={`event-details__meta-tag event-details__meta-tag--category event-details__meta-tag--${categoryKey}`}
+                  title={categoryDebugTitle}
+                  data-category-source={categoryMeta.source}
+                  data-category-confidence={String(categoryMeta.confidence)}
                 >
                   <svg
                     className='event-details__meta-tag-icon'
@@ -309,39 +385,71 @@ const EventDetails = ({
                   {t[categoryKey] || categoryKey}
                 </span>
               ) : null}
+              {isPageLoading ? (
+                <>
+                  <span className='event-details__meta-tag' aria-hidden='true'>
+                    <Skeleton variant='pill' width='84px' height='14px' />
+                  </span>
+                  <span className='event-details__meta-tag' aria-hidden='true'>
+                    <Skeleton variant='pill' width='94px' height='14px' />
+                  </span>
+                </>
+              ) : null}
             </div>
           </div>
 
           <div className='event-details__hero-wrap'>
-            <img
-              className='event-details__hero'
-              alt={primaryTitle}
-              src={primaryImage || noImage}
-            />
+            {isPageLoading ? (
+              <Skeleton variant='rect' width='100%' height='340px' />
+            ) : (
+              <img
+                className='event-details__hero'
+                alt={primaryTitle}
+                src={primaryImage || noImage}
+              />
+            )}
           </div>
 
-          {primaryDescription ? (
+          {!isPageLoading && primaryDescription ? (
             <span className='event-details__desc'>{primaryDescription}</span>
           ) : null}
-          {primaryText ? (
+          {!isPageLoading && primaryText ? (
             <p className='event-details__text'>
               <b>{primaryText}</b>
             </p>
           ) : null}
-          {primaryExtract ? (
+          {!isPageLoading && primaryExtract ? (
             <p className='event-details__extract'>{primaryExtract}</p>
+          ) : null}
+          {isPageLoading ? (
+            <div aria-hidden='true'>
+              <Skeleton width='32%' height='14px' style={{ marginBottom: '10px' }} />
+              <Skeleton width='100%' height='14px' style={{ marginBottom: '6px' }} />
+              <Skeleton width='96%' height='14px' style={{ marginBottom: '6px' }} />
+              <Skeleton width='92%' height='14px' style={{ marginBottom: '12px' }} />
+              <Skeleton width='100%' height='12px' style={{ marginBottom: '6px' }} />
+              <Skeleton width='98%' height='12px' style={{ marginBottom: '6px' }} />
+              <Skeleton width='94%' height='12px' />
+            </div>
           ) : null}
 
           <div className='event-details__content'>
             <div className='event-details__main'>
               <div className='event-details__actions'>
-                <button
-                  className='event-details__back'
-                  onClick={() => navigate(-1)}
-                >
-                  {t.backToList}
-                </button>
-                {primaryUrl ? (
+                {isPageLoading ? (
+                  <>
+                    <Skeleton variant='rect' width='100%' height='40px' />
+                    <Skeleton variant='rect' width='100%' height='40px' />
+                  </>
+                ) : (
+                  <button
+                    className='event-details__back'
+                    onClick={() => navigate(-1)}
+                  >
+                    {t.backToList}
+                  </button>
+                )}
+                {!isPageLoading && primaryUrl ? (
                   <button
                     className='event-details__read'
                     onClick={() =>
@@ -352,27 +460,38 @@ const EventDetails = ({
                   </button>
                 ) : null}
               </div>
-              <button
-                className='event-details__share-inline event-details__share-inline--centered'
-                onClick={handleShareCard}
-                disabled={isSharing}
-                type='button'
-              >
-                <svg viewBox='0 0 24 24' aria-hidden='true'>
-                  <path d='M18 16a3 3 0 0 0-2.39 1.19l-6.41-3.2a2.9 2.9 0 0 0 0-1.98l6.41-3.2A3 3 0 1 0 15 7a2.9 2.9 0 0 0 .06.58l-6.41 3.2a3 3 0 1 0 0 2.44l6.41 3.2A3 3 0 1 0 18 16Z' />
-                </svg>
-                {isSharing ? t.generatingShare : t.shareCard}
-              </button>
+              {isPageLoading ? (
+                <div className='event-details__share-inline event-details__share-inline--centered'>
+                  <Skeleton width='90px' height='12px' />
+                </div>
+              ) : (
+                <button
+                  className='event-details__share-inline event-details__share-inline--centered'
+                  onClick={handleShareCard}
+                  disabled={isSharing}
+                  type='button'
+                >
+                  <svg viewBox='0 0 24 24' aria-hidden='true'>
+                    <path d='M18 16a3 3 0 0 0-2.39 1.19l-6.41-3.2a2.9 2.9 0 0 0 0-1.98l6.41-3.2A3 3 0 1 0 15 7a2.9 2.9 0 0 0 .06.58l-6.41 3.2a3 3 0 1 0 0 2.44l6.41 3.2A3 3 0 1 0 18 16Z' />
+                  </svg>
+                  {isSharing ? t.generatingShare : t.shareCard}
+                </button>
+              )}
             </div>
           </div>
         </div>
 
         <aside className='event-details__related'>
           <h3 className='event-details__related-title'>{t.related}</h3>
-          {relatedPages.length === 0 && relatedArticles.length === 0 ? (
+          {!isPageLoading &&
+          !isLoadingRelated &&
+          relatedPages.length === 0 &&
+          relatedArticles.length === 0 ? (
             <p className='event-details__related-empty'>{t.noRelations}</p>
           ) : null}
-          {relatedPages.map((related) => (
+          {!isPageLoading &&
+            !isLoadingRelated &&
+            relatedPages.map((related) => (
             <button
               key={`event-${related.pageid}`}
               className='event-details__related-card'
@@ -399,13 +518,38 @@ const EventDetails = ({
                 </p>
               </div>
             </button>
-          ))}
+            ))}
           {isLoadingRelated ? (
-            <div className='event-details__related-loading'>
-              <Spinner variant='inline' />
-            </div>
+            <>
+              <div className='event-details__related-card' aria-hidden='true'>
+                <Skeleton variant='rect' width='72px' height='72px' />
+                <div className='event-details__related-body'>
+                  <Skeleton width='82%' height='14px' style={{ marginBottom: '7px' }} />
+                  <Skeleton width='100%' height='12px' style={{ marginBottom: '6px' }} />
+                  <Skeleton width='94%' height='12px' />
+                </div>
+              </div>
+              <div className='event-details__related-card' aria-hidden='true'>
+                <Skeleton variant='rect' width='72px' height='72px' />
+                <div className='event-details__related-body'>
+                  <Skeleton width='78%' height='14px' style={{ marginBottom: '7px' }} />
+                  <Skeleton width='100%' height='12px' style={{ marginBottom: '6px' }} />
+                  <Skeleton width='92%' height='12px' />
+                </div>
+              </div>
+              <div className='event-details__related-card' aria-hidden='true'>
+                <Skeleton variant='rect' width='72px' height='72px' />
+                <div className='event-details__related-body'>
+                  <Skeleton width='80%' height='14px' style={{ marginBottom: '7px' }} />
+                  <Skeleton width='100%' height='12px' style={{ marginBottom: '6px' }} />
+                  <Skeleton width='91%' height='12px' />
+                </div>
+              </div>
+            </>
           ) : null}
-          {relatedArticles.map((related) => (
+          {!isPageLoading &&
+            !isLoadingRelated &&
+            relatedArticles.map((related) => (
             <button
               key={`search-${related.pageid}`}
               className='event-details__related-card'
@@ -426,19 +570,60 @@ const EventDetails = ({
                 <p className='event-details__related-text'>{related.extract}</p>
               </div>
             </button>
-          ))}
+            ))}
+          {isPageLoading ? (
+            <>
+              <div className='event-details__related-card' aria-hidden='true'>
+                <Skeleton variant='rect' width='72px' height='72px' />
+                <div className='event-details__related-body'>
+                  <Skeleton width='82%' height='14px' style={{ marginBottom: '7px' }} />
+                  <Skeleton width='100%' height='12px' style={{ marginBottom: '6px' }} />
+                  <Skeleton width='94%' height='12px' />
+                </div>
+              </div>
+              <div className='event-details__related-card' aria-hidden='true'>
+                <Skeleton variant='rect' width='72px' height='72px' />
+                <div className='event-details__related-body'>
+                  <Skeleton width='78%' height='14px' style={{ marginBottom: '7px' }} />
+                  <Skeleton width='100%' height='12px' style={{ marginBottom: '6px' }} />
+                  <Skeleton width='92%' height='12px' />
+                </div>
+              </div>
+              <div className='event-details__related-card' aria-hidden='true'>
+                <Skeleton variant='rect' width='72px' height='72px' />
+                <div className='event-details__related-body'>
+                  <Skeleton width='80%' height='14px' style={{ marginBottom: '7px' }} />
+                  <Skeleton width='100%' height='12px' style={{ marginBottom: '6px' }} />
+                  <Skeleton width='91%' height='12px' />
+                </div>
+              </div>
+            </>
+          ) : null}
 
           <section className='event-details__year-article'>
             <h3 className='event-details__related-title'>{t.yearArticle}</h3>
-            {isLoadingYearArticle ? (
-              <div className='event-details__related-loading'>
-                <Spinner variant='inline' />
+            {isPageLoading ? (
+              <div className='event-details__year-article-card' aria-hidden='true'>
+                <Skeleton width='88%' height='13px' style={{ marginBottom: '8px' }} />
+                <Skeleton width='100%' height='12px' style={{ marginBottom: '6px' }} />
+                <Skeleton width='95%' height='12px' style={{ marginBottom: '6px' }} />
+                <Skeleton width='90%' height='12px' style={{ marginBottom: '8px' }} />
+                <Skeleton width='76px' height='11px' />
               </div>
             ) : null}
-            {!isLoadingYearArticle && !randomYearArticle ? (
+            {isLoadingYearArticle ? (
+              <div className='event-details__year-article-card' aria-hidden='true'>
+                <Skeleton width='88%' height='13px' style={{ marginBottom: '8px' }} />
+                <Skeleton width='100%' height='12px' style={{ marginBottom: '6px' }} />
+                <Skeleton width='95%' height='12px' style={{ marginBottom: '6px' }} />
+                <Skeleton width='90%' height='12px' style={{ marginBottom: '8px' }} />
+                <Skeleton width='76px' height='11px' />
+              </div>
+            ) : null}
+            {!isPageLoading && !isLoadingYearArticle && !randomYearArticle ? (
               <p className='event-details__related-empty'>{t.noYearArticle}</p>
             ) : null}
-            {randomYearArticle ? (
+            {!isPageLoading && !isLoadingYearArticle && randomYearArticle ? (
               <button
                 className='event-details__year-article-card'
                 onClick={() =>
@@ -454,10 +639,11 @@ const EventDetails = ({
                 <span>{t.readYearArticle}</span>
               </button>
             ) : null}
-            {randomYearArticle ? (
+            {!isPageLoading && (randomYearArticle || isLoadingYearArticle) ? (
               <button
                 className='event-details__year-randomize'
-                onClick={() => setYearArticleRefreshKey((prev) => prev + 1)}
+                onClick={handleRandomizeYearArticle}
+                disabled={isLoadingYearArticle}
               >
                 {t.randomFromYear}
               </button>
