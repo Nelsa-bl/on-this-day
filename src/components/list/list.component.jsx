@@ -270,6 +270,18 @@ const List = ({
 
   // Single scroll restoration path to avoid jump on back navigation.
   useEffect(() => {
+    const shouldForceTop = sessionStorage.getItem('forceListTop') === '1';
+    if (shouldForceTop) {
+      window.scrollTo(0, 0);
+      setScrollYByType((prev) => ({
+        ...prev,
+        [typeOfEvent]: 0,
+      }));
+      restoredRef.current[typeOfEvent] = true;
+      sessionStorage.removeItem('forceListTop');
+      return;
+    }
+
     if (isLoading) return;
     if (restoredRef.current[typeOfEvent]) return;
     const lastType = sessionStorage.getItem('lastClickedType');

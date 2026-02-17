@@ -21,8 +21,16 @@ const EventDetails = ({
   const { type, pageId } = useParams();
   const location = useLocation();
   const navigate = useNavigate();
+  const searchParams = new URLSearchParams(location.search);
+  const routeLangParam = (searchParams.get('lang') || '').toLowerCase();
+  const routeLanguage = /^[a-z-]{2,5}$/.test(routeLangParam)
+    ? routeLangParam
+    : '';
+  const resolvedLanguage = routeLanguage || language || 'en';
+  const routeYear = searchParams.get('year') || '';
   const [event, setEvent] = useState(location.state?.event ?? null);
   const [wikiPage] = useState(location.state?.wikiPage ?? null);
+  const [fallbackPage, setFallbackPage] = useState(null);
   const [isLoading, setIsLoading] = useState(!event);
   const [isLoadingRelated, setIsLoadingRelated] = useState(true);
   const [isLoadingYearArticle, setIsLoadingYearArticle] = useState(false);
@@ -38,18 +46,88 @@ const EventDetails = ({
     if (event) return;
     if (isLoadingList) return;
 
-    const list = events?.[type] || [];
-    const found = list.find((item) =>
-      item.pages?.some((page) => String(page.pageid) === String(pageId)),
-    );
+    const findFromList = () => {
+      const list = events?.[type] || [];
+      return (
+        list.find((item) =>
+          item.pages?.some((page) => String(page.pageid) === String(pageId)),
+        ) || null
+      );
+    };
 
-    if (!found) {
-      setError('Event not found.');
-    } else {
+    const found = findFromList();
+    if (found) {
       setEvent(found);
+      setError(null);
+      setIsLoading(false);
+      return;
     }
-    setIsLoading(false);
-  }, [event, events, isLoadingList, pageId, type]);
+
+    let isMounted = true;
+    const controller = new AbortController();
+
+    const loadFallbackByPageId = async () => {
+      try {
+        setIsLoading(true);
+        setError(null);
+        const apiUrl = `https://${resolvedLanguage}.wikipedia.org/w/api.php?action=query&format=json&pageids=${encodeURIComponent(
+          pageId,
+        )}&prop=info|pageimages|extracts|pageterms&inprop=url&piprop=thumbnail|original&pithumbsize=1200&exintro=1&explaintext=1&redirects=1&origin=*`;
+        const response = await fetch(apiUrl, {
+          signal: controller.signal,
+        });
+        if (!response.ok) {
+          throw new Error(`Fallback load failed with ${response.status}`);
+        }
+        const payload = await response.json();
+        const pages = payload?.query?.pages || {};
+        const page = pages?.[pageId] || Object.values(pages)[0] || null;
+
+        if (!page || page.missing != null) {
+          throw new Error('Page missing');
+        }
+
+        const normalizedTitle = page?.title || '';
+        const contentUrl =
+          page?.fullurl ||
+          (normalizedTitle
+            ? `https://${resolvedLanguage}.wikipedia.org/wiki/${encodeURIComponent(
+                normalizedTitle,
+              )}`
+            : '');
+        const normalizedPage = {
+          pageid: page?.pageid ?? pageId,
+          titles: { normalized: normalizedTitle },
+          normalizedtitle: normalizedTitle,
+          description: page?.terms?.description?.[0] || '',
+          extract: page?.extract || '',
+          thumbnail: page?.thumbnail?.source ? { source: page.thumbnail.source } : null,
+          content_urls: contentUrl
+            ? {
+                desktop: { page: contentUrl },
+                mobile: { page: contentUrl },
+              }
+            : null,
+        };
+
+        if (!isMounted) return;
+        setFallbackPage(normalizedPage);
+        setError(null);
+      } catch (err) {
+        if (!isMounted || err?.name === 'AbortError') return;
+        setError('Event not found.');
+      } finally {
+        if (!isMounted) return;
+        setIsLoading(false);
+      }
+    };
+
+    loadFallbackByPageId();
+    return () => {
+      isMounted = false;
+      controller.abort();
+    };
+  }, [event, events, isLoadingList, pageId, resolvedLanguage, type]);
 
   useEffect(() => {
     window.scrollTo(0, 0);
@@ -78,6 +156,7 @@ const EventDetails = ({
   const page =
     routeMatchedPage ||
     wikiPage ||
+    fallbackPage ||
     getPrimaryPage(event) ||
     event?.pages?.[0] ||
     null;
@@ -110,7 +189,7 @@ const EventDetails = ({
     const loadRelated = async () => {
       try {
         const baseTitle = title.replace(/_/g, ' ');
-        const lang = language || 'en';
+        const lang = resolvedLanguage;
         const searchUrl = `https://${lang}.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(
           baseTitle,
         )}&srlimit=4&format=json&origin=*`;
@@ -152,7 +231,7 @@ const EventDetails = ({
     return () => {
       isMounted = false;
     };
-  }, [language, page, wikiPage]);
+  }, [resolvedLanguage, page, wikiPage]);
 
   const primaryTitle =
     page?.titles?.normalized || wikiPage?.title || 'Unknown title';
@@ -160,7 +239,7 @@ const EventDetails = ({
   const primaryDescription = page?.description || wikiPage?.description || '';
   const primaryExtract = page?.extract || wikiPage?.extract || '';
   const primaryText = event?.text || '';
-  const primaryYear = event?.year || '';
+  const primaryYear = event?.year || routeYear || '';
   const numericYear = Number(primaryYear);
   const yearsAgo = Number.isFinite(numericYear)
     ? Math.max(0, new Date().getFullYear() - numericYear)
@@ -180,6 +259,17 @@ const EventDetails = ({
     wikiPage?.contentUrl ||
     '';
 
+  const handleBackToList = () => {
+    const historyIndex = window.history.state?.idx;
+    if (typeof historyIndex === 'number' && historyIndex > 0) {
+      navigate(-1);
+      return;
+    }
+
+    sessionStorage.setItem('forceListTop', '1');
+    navigate('/', { replace: true });
+  };
+
   useEffect(() => {
     const targetYear = Number(primaryYear);
     if (!Number.isFinite(targetYear)) {
@@ -191,9 +281,10 @@ const EventDetails = ({
     const loadRandomYearArticle = async () => {
       try {
         setIsLoadingYearArticle(true);
-        const langCandidates = [language, language === 'bs' ? 'sr' : null].filter(
-          Boolean,
-        );
+        const langCandidates = [
+          resolvedLanguage,
+          resolvedLanguage === 'bs' ? 'sr' : null,
+        ].filter(Boolean);
 
         for (const lang of langCandidates) {
           const searchUrl = `https://${lang}.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(
@@ -243,9 +334,15 @@ const EventDetails = ({
     return () => {
       isMounted = false;
     };
-  }, [language, pageId, primaryTitle, primaryYear, yearArticleRefreshKey]);
+  }, [
+    pageId,
+    primaryTitle,
+    primaryYear,
+    resolvedLanguage,
+    yearArticleRefreshKey,
+  ]);
   const shareDateLabel = new Date().toLocaleDateString(
-    language === 'bs' ? 'sr-RS' : 'en-US',
+    resolvedLanguage === 'bs' ? 'sr-RS' : 'en-US',
     { day: '2-digit', month: 'short', year: 'numeric' },
   );
 
@@ -256,9 +353,12 @@ const EventDetails = ({
       const detailUrl = `${window.location.origin}${window.location.pathname}${window.location.search}`;
       const sharePath =
         type && pageId
-          ? `/share/event/${encodeURIComponent(type)}/${encodeURIComponent(
-              pageId,
-            )}?lang=${encodeURIComponent(language || 'en')}`
+          ? `/share/event/${encodeURIComponent(type)}/${encodeURIComponent(pageId)}?${new URLSearchParams(
+              {
+                lang: resolvedLanguage,
+                ...(primaryYear ? { year: String(primaryYear) } : {}),
+              },
+            ).toString()}`
           : '';
       const shareUrl = sharePath
         ? `${window.location.origin}${sharePath}`
@@ -327,7 +427,7 @@ const EventDetails = ({
     return (
       <div className='event-details'>
         <div className='event-details__header'>
-          <button className='event-details__back' onClick={() => navigate(-1)}>
+          <button className='event-details__back' onClick={handleBackToList}>
             {t.backToList}
           </button>
         </div>
@@ -339,7 +439,7 @@ const EventDetails = ({
   return (
     <div className='event-details'>
       <div className='event-details__header'>
-        <button className='event-details__back' onClick={() => navigate(-1)}>
+        <button className='event-details__back' onClick={handleBackToList}>
           {t.backToList}
         </button>
         <span className='event-details__type'>{eventTypeLabel}</span>
@@ -444,7 +544,7 @@ const EventDetails = ({
                 ) : (
                   <button
                     className='event-details__back'
-                    onClick={() => navigate(-1)}
+                    onClick={handleBackToList}
                   >
                     {t.backToList}
                   </button>
