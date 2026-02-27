@@ -7,7 +7,6 @@ import {
   getPrimaryPage,
 } from '../../utils/events/eventMeta';
 import { getCategoryIcon } from '../../utils/events/categoryBadge';
-import { generateShareCardBlob } from '../../utils/share/shareCardImage';
 import Skeleton from '../../components/skeleton/skeleton.component';
 import noImage from '../../assets/no_image.jpg';
 import './eventDetails.style.scss';
@@ -72,7 +71,7 @@ const EventDetails = ({
         setError(null);
         const apiUrl = `https://${resolvedLanguage}.wikipedia.org/w/api.php?action=query&format=json&pageids=${encodeURIComponent(
           pageId,
-        )}&prop=info|pageimages|extracts|pageterms&inprop=url&piprop=thumbnail|original&pithumbsize=1200&exintro=1&explaintext=1&redirects=1&origin=*`;
+        )}&prop=info|pageimages|extracts|pageterms&inprop=url&piprop=thumbnail|original&pithumbsize=960&exintro=1&explaintext=1&redirects=1&origin=*`;
         const response = await fetch(apiUrl, {
           signal: controller.signal,
         });
@@ -392,6 +391,9 @@ const EventDetails = ({
         return;
       }
 
+      const { generateShareCardBlob } = await import(
+        '../../utils/share/shareCardImage'
+      );
       const blob = await generateShareCardBlob({
         title: primaryTitle,
         year: primaryYear,
@@ -506,6 +508,8 @@ const EventDetails = ({
                 className='event-details__hero'
                 alt={primaryTitle}
                 src={primaryImage || noImage}
+                fetchPriority='high'
+                decoding='async'
               />
             )}
           </div>
@@ -601,13 +605,12 @@ const EventDetails = ({
                 openExternal(toWikiUrl(relatedTitle));
               }}
             >
-              <div
+              <img
                 className='event-details__related-image'
-                style={{
-                  backgroundImage: `url(${
-                    related?.thumbnail?.source || noImage
-                  })`,
-                }}
+                src={related?.thumbnail?.source || noImage}
+                alt={related?.titles?.normalized || ''}
+                loading='lazy'
+                decoding='async'
               />
               <div className='event-details__related-body'>
                 <h4 className='event-details__related-headline'>
@@ -657,11 +660,12 @@ const EventDetails = ({
                 openExternal(related.contentUrl || toWikiUrl(related.title));
               }}
             >
-              <div
+              <img
                 className='event-details__related-image'
-                style={{
-                  backgroundImage: `url(${related.thumbnail || noImage})`,
-                }}
+                src={related.thumbnail || noImage}
+                alt={related.title || ''}
+                loading='lazy'
+                decoding='async'
               />
               <div className='event-details__related-body'>
                 <h4 className='event-details__related-headline'>

@@ -1,19 +1,24 @@
 // Import components
 import List from './components/list/list.component';
-import EventDetails from './pages/eventDetails/eventDetails.component';
 import { year, month, day, weekday } from './utils/date/date';
 import BackToTopButton from './components/backToTopButton/backToTopButton';
 import Header from './components/header/header';
+import Spinner from './components/spinner/spinner.component';
 import useSessionStorage from './utils/hooks/useSessionStorage';
 import useLocalStorage from './utils/hooks/useLocalStorage';
 import { Routes, Route } from 'react-router-dom';
-import { useEffect, useState } from 'react';
+import { lazy, startTransition, Suspense, useEffect, useState } from 'react';
+import { flushSync } from 'react-dom';
 import { getData, getFeaturedData } from './utils/apis/api';
 import { enrichEventsWithWikidataCategory } from './utils/events/wikidataCategory';
 import {
   requestNotificationPermission,
   startDailyReminder,
 } from './utils/notifications/dailyReminder';
+
+const EventDetails = lazy(() =>
+  import('./pages/eventDetails/eventDetails.component'),
+);
 
 const App = () => {
   const [language, setLanguage] = useSessionStorage('language', 'bs'); // Use session storage
@@ -27,6 +32,7 @@ const App = () => {
     'dailyReminderEnabled',
     false
   );
+  const [isDarkTheme, setIsDarkTheme] = useLocalStorage('isDarkTheme', false);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -36,13 +42,10 @@ const App = () => {
         setIsLoading(true);
         setHasFetched(false);
         setError('');
-        const [data, featured] = await Promise.all([
-          getData(language, controller.signal),
-          getFeaturedData(language, controller.signal).catch(() => null),
-        ]);
+        setFeaturedData(null);
+        const data = await getData(language, controller.signal);
         if (!isCurrent) return;
         setEvents(data);
-        setFeaturedData(featured);
 
         // Run category enrichment in background so first paint is not blocked.
         if (process.env.NODE_ENV !== 'test') {
@@ -75,9 +78,58 @@ const App = () => {
   }, [language, reloadKey]);
 
   useEffect(() => {
+    let isCurrent = true;
+    const controller = new AbortController();
+    let idleId;
+    let timeoutId;
+
+    const loadFeatured = async () => {
+      try {
+        const featured = await getFeaturedData(language, controller.signal).catch(
+          () => null,
+        );
+        if (!isCurrent || controller.signal.aborted) return;
+        startTransition(() => {
+          setFeaturedData(featured);
+        });
+      } catch {}
+    };
+
+    const scheduleLoad = () => {
+      if ('requestIdleCallback' in window) {
+        idleId = window.requestIdleCallback(loadFeatured, { timeout: 1500 });
+        return;
+      }
+
+      timeoutId = window.setTimeout(loadFeatured, 350);
+    };
+
+    scheduleLoad();
+
+    return () => {
+      isCurrent = false;
+      controller.abort();
+      if (idleId) window.cancelIdleCallback(idleId);
+      if (timeoutId) window.clearTimeout(timeoutId);
+    };
+  }, [language, reloadKey]);
+
+  useEffect(() => {
     if (!dailyReminderEnabled) return () => {};
     return startDailyReminder(language);
   }, [dailyReminderEnabled, language]);
+
+  useEffect(() => {
+    const theme = isDarkTheme ? 'dark' : 'light';
+    document.documentElement.dataset.theme = theme;
+    document.body.dataset.theme = theme;
+    document.documentElement.classList.remove('theme-preload');
+
+    return () => {
+      delete document.documentElement.dataset.theme;
+      delete document.body.dataset.theme;
+    };
+  }, [isDarkTheme]);
 
   const handleReminderToggle = async () => {
     if (dailyReminderEnabled) {
@@ -87,6 +139,24 @@ const App = () => {
 
     const granted = await requestNotificationPermission();
     if (granted) setDailyReminderEnabled(true);
+  };
+
+  const handleThemeToggle = () => {
+    const nextTheme = !isDarkTheme;
+    const root = document.documentElement;
+    root.style.setProperty('--theme-switch-origin-x', 'calc(100% - 60px)');
+    root.style.setProperty('--theme-switch-origin-y', '72px');
+
+    if (!document.startViewTransition) {
+      setIsDarkTheme(nextTheme);
+      return;
+    }
+
+    document.startViewTransition(() => {
+      flushSync(() => {
+        setIsDarkTheme(nextTheme);
+      });
+    });
   };
 
   return (
@@ -100,6 +170,8 @@ const App = () => {
         year={year}
         dailyReminderEnabled={dailyReminderEnabled}
         onReminderToggle={handleReminderToggle}
+        isDarkTheme={isDarkTheme}
+        onThemeToggle={handleThemeToggle}
       />
       <Routes>
         <Route
@@ -119,12 +191,14 @@ const App = () => {
         <Route
           path='/event/:type/:pageId'
           element={
-            <EventDetails
-              language={language}
-              events={events}
-              isLoading={isLoading}
-              appError={error}
-            />
+            <Suspense fallback={<Spinner />}>
+              <EventDetails
+                language={language}
+                events={events}
+                isLoading={isLoading}
+                appError={error}
+              />
+            </Suspense>
           }
         />
       </Routes>

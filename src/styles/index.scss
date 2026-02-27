@@ -1,6 +1,8 @@
 @import './mixins';
 
 :root {
+  --theme-switch-origin-x: calc(100% - 60px);
+  --theme-switch-origin-y: 72px;
   --color-main--1: #000;
   --color-main--2: #fff;
   --color-dark--1: gray;
@@ -15,6 +17,43 @@
   --color-edited--2: royalblue;
   --color-deleted--1: #dc3545;
   --color-deleted--2: darkred;
+  --color-page-bg: #ffffff;
+  --color-surface--1: #ffffff;
+  --color-surface--2: #fafafa;
+  --color-surface--3: #f5f5f5;
+  --color-surface--4: #e7e7e7;
+  --color-overlay: rgba(0, 0, 0, 0.8);
+  --color-shadow: rgba(0, 0, 0, 0.2);
+  --color-contrast-soft: #ffffff;
+  --color-neutral-soft: #dddddd;
+  --color-error-soft: #fff7f7;
+  --color-politics-soft: #fff5e8;
+  --color-politics-border: #f3d9b3;
+  --color-politics-text: #805100;
+}
+
+html[data-theme='dark'] {
+  --color-main--1: #f5f7fa;
+  --color-main--2: #11161d;
+  --color-dark--1: #b7c0ca;
+  --color-dark--2: #8e98a5;
+  --color-dark--3: #667180;
+  --color-light--1: #2a313d;
+  --color-light--2: #313947;
+  --color-light--3: #1a212b;
+  --color-page-bg: #11161d;
+  --color-surface--1: #1a212b;
+  --color-surface--2: #202734;
+  --color-surface--3: #161c25;
+  --color-surface--4: #222a36;
+  --color-overlay: rgba(7, 11, 16, 0.88);
+  --color-shadow: rgba(0, 0, 0, 0.45);
+  --color-contrast-soft: #f5f7fa;
+  --color-neutral-soft: #313947;
+  --color-error-soft: #34191d;
+  --color-politics-soft: #3a2b12;
+  --color-politics-border: #6b5329;
+  --color-politics-text: #f2cf8f;
 }
 
 * {
@@ -27,9 +66,47 @@ body {
   font-family: 'Outfit', sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background: var(--color-page-bg);
+  color: var(--color-main--1);
+  transition:
+    background-color 0.2s ease,
+    color 0.2s ease;
 
   @include device-size(mobile) {
     padding: 15px;
+  }
+}
+
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 550ms;
+  animation-timing-function: cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+::view-transition-old(root) {
+  animation-name: none;
+}
+
+::view-transition-new(root) {
+  clip-path: circle(
+    0% at var(--theme-switch-origin-x) var(--theme-switch-origin-y)
+  );
+  animation-name: theme-reveal;
+}
+
+@keyframes theme-reveal {
+  from {
+    clip-path: circle(
+      0% at var(--theme-switch-origin-x) var(--theme-switch-origin-y)
+    );
+    filter: saturate(0.94) brightness(1.02);
+  }
+
+  to {
+    clip-path: circle(
+      150% at var(--theme-switch-origin-x) var(--theme-switch-origin-y)
+    );
+    filter: saturate(1) brightness(1);
   }
 }
 

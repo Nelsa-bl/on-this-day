@@ -20,42 +20,68 @@
       padding: 10px 15px;
       font-size: 12px;
       cursor: pointer;
-      background-color: #ddd;
-      color: black;
+      background-color: var(--color-light--2);
+      color: var(--color-main--1);
+      transition:
+        background-color 0.2s ease,
+        color 0.2s ease,
+        border-color 0.2s ease;
 
       &:disabled {
         opacity: 1;
         font-weight: bold;
         cursor: pointer;
-        background-color: black;
-        color: white;
+        background-color: var(--color-main--1);
+        color: var(--color-main--2);
       }
     }
 
-    .reminder-icon-btn {
+    .reminder-icon-btn,
+    .theme-icon-btn {
       width: 40px;
       height: 40px;
       display: inline-flex;
       align-items: center;
       justify-content: center;
       border: 1px solid var(--color-light--2);
-      background: white;
+      background: var(--color-surface--1);
       padding: 0;
       margin-left: 10px;
+      transition:
+        transform 0.35s cubic-bezier(0.22, 1, 0.36, 1),
+        background-color 0.2s ease,
+        border-color 0.2s ease;
 
       svg {
         width: 18px;
         height: 18px;
-        fill: #444;
+        fill: var(--color-dark--2);
+        transition:
+          transform 0.5s cubic-bezier(0.22, 1, 0.36, 1),
+          fill 0.2s ease;
+      }
+
+      &:hover {
+        transform: translateY(-1px);
       }
 
       &.active {
-        background: black;
-        border-color: black;
+        background: var(--color-main--1);
+        border-color: var(--color-main--1);
 
         svg {
-          fill: white;
+          fill: var(--color-main--2);
         }
+      }
+    }
+
+    .theme-icon-btn {
+      svg {
+        transform-origin: center;
+      }
+
+      &.active svg {
+        transform: rotate(-18deg) scale(1.08);
       }
     }
 
@@ -73,7 +99,7 @@
     position: relative !important;
     top: 0 !important;
     display: grid !important;
-    grid-template-columns: 1fr 1fr 44px;
+    grid-template-columns: 1fr 1fr 44px 44px;
     gap: 10px;
     margin-left: 0 !important;
     width: 100%;
@@ -82,7 +108,8 @@
       margin: 0 !important;
     }
 
-    .reminder-icon-btn {
+    .reminder-icon-btn,
+    .theme-icon-btn {
       width: 44px;
       height: 44px;
     }

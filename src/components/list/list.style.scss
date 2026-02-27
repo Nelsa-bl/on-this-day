@@ -61,7 +61,7 @@
   gap: 18px;
   border: 1px solid var(--color-light--2);
   padding: 12px;
-  background: #fff;
+  background: var(--color-surface--1);
 }
 
 .filters-title {
@@ -88,7 +88,8 @@
 .sort-order-select {
   height: 34px;
   border: 1px solid var(--color-light--2);
-  background: #fff;
+  background: var(--color-surface--1);
+  color: var(--color-main--1);
   padding: 0 8px;
   font-size: 12px;
 }
@@ -102,7 +103,7 @@
   width: 34px;
   height: 34px;
   border: 1px solid var(--color-light--2);
-  background: #fff;
+  background: var(--color-surface--1);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -112,16 +113,16 @@
 .icon-toggle svg {
   width: 18px;
   height: 18px;
-  fill: #444;
+  fill: var(--color-dark--2);
 }
 
 .icon-toggle.active {
-  background: #000;
-  border-color: #000;
+  background: var(--color-main--1);
+  border-color: var(--color-main--1);
 }
 
 .icon-toggle.active svg {
-  fill: #fff;
+  fill: var(--color-main--2);
 }
 
 .category-chips {
@@ -148,29 +149,31 @@
 .category-mobile-select {
   width: 100%;
   border: 1px solid var(--color-light--2);
-  background: white;
+  background: var(--color-surface--1);
+  color: var(--color-main--1);
   padding: 8px 10px;
   font-size: 14px;
 }
 
 .category-chip {
   border: 1px solid var(--color-light--2);
-  background: white;
+  background: var(--color-surface--1);
+  color: var(--color-main--1);
   padding: 6px 10px;
   cursor: pointer;
 }
 
 .category-chip.active {
-  background: black;
-  color: white;
-  border-color: black;
+  background: var(--color-main--1);
+  color: var(--color-main--2);
+  border-color: var(--color-main--1);
 }
 
 .list-error {
   margin: 0 0 16px;
   padding: 12px;
   border: 1px solid var(--color-deleted--2);
-  background: #fff7f7;
+  background: var(--color-error-soft);
 }
 
 .list-error p {
@@ -179,7 +182,7 @@
 
 .list-empty {
   border: 1px solid var(--color-light--2);
-  background: #fff;
+  background: var(--color-surface--1);
   padding: 18px;
   text-align: center;
   background-color: var(--color-light--3);
@@ -217,11 +220,12 @@
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 12px;
   margin: 0;
+  color: var(--color-main--1);
 }
 
 .featured-block {
   border: 1px solid var(--color-light--2);
-  background: #fff;
+  background: var(--color-surface--1);
   padding: 12px;
 }
 
@@ -243,7 +247,8 @@
   width: 100%;
   text-align: left;
   border: 1px solid var(--color-light--2);
-  background: #fafafa;
+  background: var(--color-surface--2);
+  color: var(--color-main--1);
   padding: 7px 8px;
   cursor: pointer;
 }
@@ -254,7 +259,7 @@
   justify-content: center;
   font-size: 11px;
   border: 1px solid var(--color-light--2);
-  background: #fff;
+  background: var(--color-surface--1);
   padding: 2px 4px;
 }
 
@@ -274,7 +279,8 @@
 
 .featured-news-chip {
   border: 1px solid var(--color-light--2);
-  background: #f6f6f6;
+  background: var(--color-surface--2);
+  color: var(--color-main--1);
   padding: 6px 10px;
   font-size: 12px;
   cursor: pointer;
@@ -284,7 +290,8 @@
 .featured-story-card {
   width: 100%;
   border: 1px solid var(--color-light--2);
-  background: #fafafa;
+  background: var(--color-surface--2);
+  color: var(--color-main--1);
   padding: 10px;
   text-align: left;
   cursor: pointer;
@@ -314,6 +321,7 @@
   max-width: 1100px;
   margin: 0 auto;
   padding: 6px 0;
+  color: var(--color-main--1);
 }
 
 .timeline-vertical::before {
@@ -338,6 +346,7 @@
   width: calc(50% - 70px);
   background: none;
   border: none;
+  color: var(--color-main--1);
   text-align: left;
   padding: 0;
   cursor: pointer;
@@ -357,7 +366,7 @@
   width: 40px;
   height: 40px;
   border-radius: 999px;
-  border: 3px solid white;
+  border: 3px solid var(--color-contrast-soft);
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -377,7 +386,7 @@
 .timeline-marker svg {
   width: 18px;
   height: 18px;
-  fill: white;
+  fill: var(--color-contrast-soft);
 }
 
 .timeline-marker--image {
@@ -385,7 +394,7 @@
   height: 100px;
   padding: 0;
   overflow: hidden;
-  background: #ddd !important;
+  background: var(--color-neutral-soft) !important;
 }
 
 .timeline-node--left .timeline-marker--image {
@@ -411,6 +420,7 @@
   padding: 0;
   background: transparent;
   border: none;
+  color: var(--color-main--1);
 }
 
 .timeline-node--left .timeline-year-pill {
@@ -425,7 +435,8 @@
 
 .timeline-content-card {
   border: 1px solid var(--color-light--2);
-  background: #fff;
+  background: var(--color-surface--1);
+  color: var(--color-main--1);
   padding: 14px;
   margin-top: 10px;
 }
@@ -449,7 +460,7 @@
   font-size: 11px;
   border: 1px solid var(--color-light--2);
   padding: 3px 6px;
-  background: #f6f6f6;
+  background: var(--color-surface--2);
 }
 
 .timeline-category__icon {
@@ -484,9 +495,9 @@
 }
 
 .timeline-category--politics {
-  color: #805100;
-  background: #fff5e8;
-  border-color: #f3d9b3;
+  color: var(--color-politics-text);
+  background: var(--color-politics-soft);
+  border-color: var(--color-politics-border);
 }
 
 .timeline-category--discovery {

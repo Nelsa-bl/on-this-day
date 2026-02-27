@@ -11,6 +11,17 @@ import './styles/index.scss';
 // Import WebVitals
 import reportWebVitals from './reportWebVitals';
 
+try {
+  const storedTheme = localStorage.getItem('isDarkTheme');
+  const isDarkTheme = storedTheme ? JSON.parse(storedTheme) : false;
+  const theme = isDarkTheme ? 'dark' : 'light';
+  document.documentElement.dataset.theme = theme;
+  document.body.dataset.theme = theme;
+} catch {
+  document.documentElement.dataset.theme = 'light';
+  document.body.dataset.theme = 'light';
+}
+
 const root = ReactDOM.createRoot(document.getElementById('root'));
 root.render(
   <React.StrictMode>

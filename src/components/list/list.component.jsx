@@ -49,12 +49,29 @@ const List = ({
 
   const listRef = useRef(null);
   const restoredRef = useRef({});
+  const scrollYRef = useRef(DEFAULT_SCROLL);
   const [columns, setColumns] = useState(5);
   const [isRestoring, setIsRestoring] = useState(false);
 
   const t = translations[language] || translations.bs;
   const getCategoryLabel = (key) =>
     key === 'all' ? t.allCategories || 'All' : t[key] || key;
+  const loadingTimelineItems = useMemo(
+    () => Array.from({ length: 8 }, (_, index) => ({ _loading: true, id: index })),
+    [],
+  );
+  const loadingFeaturedMostRead = useMemo(
+    () => Array.from({ length: 4 }, (_, index) => ({ _loading: true, id: index })),
+    [],
+  );
+  const loadingFeaturedNews = useMemo(
+    () => Array.from({ length: 5 }, (_, index) => ({ _loading: true, id: index })),
+    [],
+  );
+
+  useEffect(() => {
+    scrollYRef.current = scrollYByType || DEFAULT_SCROLL;
+  }, [scrollYByType]);
 
   const sortByYear = useMemo(
     () =>
@@ -78,84 +95,89 @@ const List = ({
   const isInitialLoading = isLoading || !hasFetched;
   const loadingCount = Math.max(columns * 2, 6);
 
-  const onThisDayFlat = useMemo(
-    () =>
-      ['events', 'births', 'holidays']
-        .flatMap((key) => events?.[key] || [])
-        .filter((item) => getPrimaryPage(item)?.titles?.normalized),
-    [events],
-  );
+  const shouldBuildOnThisDayFallbacks =
+    !featuredData?.mostread?.articles?.length ||
+    !featuredData?.news?.length ||
+    !featuredData?.tfa;
 
-  const mostReadItems = useMemo(
-    () => {
-      const feedItems = (featuredData?.mostread?.articles || [])
-        .filter((item) => item?.title && item?.content_urls?.desktop?.page)
-        .map((item) => ({
-          title: item.titles?.normalized || item.title,
-          url: item.content_urls.desktop.page,
-          rank: item?.rank,
-        }));
+  const onThisDayFlat = useMemo(() => {
+    if (!shouldBuildOnThisDayFallbacks) return [];
 
-      if (feedItems.length > 0) return feedItems.slice(0, 6);
+    const flattened = [];
+    for (const key of ['events', 'births', 'holidays']) {
+      const items = events?.[key] || [];
+      for (const item of items) {
+        const page = getPrimaryPage(item);
+        if (page?.titles?.normalized) flattened.push(item);
+      }
+    }
+    return flattened;
+  }, [events, shouldBuildOnThisDayFallbacks]);
 
-      // Fallback from local on-this-day data when feed mostread is unavailable.
-      return onThisDayFlat
-        .map((item) => {
-          const page = getPrimaryPage(item);
-          return {
-            title: page?.titles?.normalized || '',
-            url:
-              page?.content_urls?.desktop?.page ||
-              page?.content_urls?.mobile?.page ||
-              '',
-          };
-        })
-        .filter((item) => item.title && item.url)
-        .slice(0, 6);
-    },
-    [featuredData, onThisDayFlat],
-  );
+  const mostReadItems = useMemo(() => {
+    const feedItems = (featuredData?.mostread?.articles || [])
+      .filter((item) => item?.title && item?.content_urls?.desktop?.page)
+      .map((item) => ({
+        title: item.titles?.normalized || item.title,
+        url: item.content_urls.desktop.page,
+        rank: item?.rank,
+      }));
 
-  const newsItems = useMemo(
-    () => {
-      const feedItems = (featuredData?.news || [])
-        .map((item) => {
-          const firstLink = item?.links?.[0] || {};
-          return {
-            key: item?.story || firstLink?.title,
-            title:
-              firstLink?.titles?.normalized ||
-              firstLink?.title ||
-              item?.story ||
-              '',
-            url: firstLink?.content_urls?.desktop?.page || '',
-            summary: item?.story || '',
-          };
-        })
-        .filter((item) => item.title && item.url);
+    if (feedItems.length > 0) return feedItems.slice(0, 6);
 
-      if (feedItems.length > 0) return feedItems.slice(0, 5);
+    // Fallback from local on-this-day data when feed mostread is unavailable.
+    return onThisDayFlat
+      .map((item) => {
+        const page = getPrimaryPage(item);
+        return {
+          title: page?.titles?.normalized || '',
+          url:
+            page?.content_urls?.desktop?.page ||
+            page?.content_urls?.mobile?.page ||
+            '',
+        };
+      })
+      .filter((item) => item.title && item.url)
+      .slice(0, 6);
+  }, [featuredData, onThisDayFlat]);
 
-      // Fallback from local on-this-day data when feed news is unavailable.
-      return onThisDayFlat
-        .slice(6)
-        .map((item, index) => {
-          const page = getPrimaryPage(item);
-          return {
-            key: `${item?.year}-${index}`,
-            title: page?.titles?.normalized || '',
-            url:
-              page?.content_urls?.desktop?.page ||
-              page?.content_urls?.mobile?.page ||
-              '',
-            summary: item.text || '',
-          };
-        })
-        .filter((item) => item.title && item.url)
-        .slice(0, 5);
-    },
-    [featuredData, onThisDayFlat],
-  );
+  const newsItems = useMemo(() => {
+    const feedItems = (featuredData?.news || [])
+      .map((item) => {
+        const firstLink = item?.links?.[0] || {};
+        return {
+          key: item?.story || firstLink?.title,
+          title:
+            firstLink?.titles?.normalized ||
+            firstLink?.title ||
+            item?.story ||
+            '',
+          url: firstLink?.content_urls?.desktop?.page || '',
+          summary: item?.story || '',
+        };
+      })
+      .filter((item) => item.title && item.url);
+
+    if (feedItems.length > 0) return feedItems.slice(0, 5);
+
+    // Fallback from local on-this-day data when feed news is unavailable.
+    return onThisDayFlat
+      .slice(6)
+      .map((item, index) => {
+        const page = getPrimaryPage(item);
+        return {
+          key: `${item?.year}-${index}`,
+          title: page?.titles?.normalized || '',
+          url:
+            page?.content_urls?.desktop?.page ||
+            page?.content_urls?.mobile?.page ||
+            '',
+          summary: item.text || '',
+        };
+      })
+      .filter((item) => item.title && item.url)
+      .slice(0, 5);
+  }, [featuredData, onThisDayFlat]);
 
   const featuredArticle = useMemo(() => {
     const tfa = featuredData?.tfa;
@@ -250,50 +272,59 @@ const List = ({
 
   useEffect(() => {
     const handleScroll = () => {
-      setScrollYByType((prev) => ({
-        ...prev,
+      scrollYRef.current = {
+        ...scrollYRef.current,
         [typeOfEvent]: window.scrollY,
-      }));
+      };
     };
-    window.addEventListener('scroll', handleScroll);
+
+    window.addEventListener('scroll', handleScroll, { passive: true });
     return () => window.removeEventListener('scroll', handleScroll);
-  }, [typeOfEvent, setScrollYByType]);
+  }, [typeOfEvent]);
 
   useEffect(() => {
     return () => {
-      setScrollYByType((prev) => ({
-        ...prev,
-        [typeOfEvent]: window.scrollY,
-      }));
+      setScrollYByType((prev) => {
+        const next = {
+          ...(prev || DEFAULT_SCROLL),
+          [typeOfEvent]: window.scrollY,
+        };
+        scrollYRef.current = next;
+        return next;
+      });
     };
   }, [typeOfEvent, setScrollYByType]);
 
   // Single scroll restoration path to avoid jump on back navigation.
-  useEffect(() => {
-    const shouldForceTop = sessionStorage.getItem('forceListTop') === '1';
-    if (shouldForceTop) {
-      window.scrollTo(0, 0);
-      setScrollYByType((prev) => ({
-        ...prev,
-        [typeOfEvent]: 0,
-      }));
-      restoredRef.current[typeOfEvent] = true;
-      sessionStorage.removeItem('forceListTop');
-      return;
-    }
+  useEffect(
+    () => {
+      const shouldForceTop = sessionStorage.getItem('forceListTop') === '1';
+      if (shouldForceTop) {
+        window.scrollTo(0, 0);
+        setScrollYByType((prev) => ({
+          ...prev,
+          [typeOfEvent]: 0,
+        }));
+        restoredRef.current[typeOfEvent] = true;
+        sessionStorage.removeItem('forceListTop');
+        return;
+      }
 
-    if (isLoading) return;
-    if (restoredRef.current[typeOfEvent]) return;
-    const lastType = sessionStorage.getItem('lastClickedType');
-    const lastId = sessionStorage.getItem('lastClickedPageId');
-    const lastIndex = sessionStorage.getItem('lastClickedIndex');
-    if (lastType === typeOfEvent && lastId && lastIndex != null) {
-      return;
-    }
-    const savedY = scrollYByType?.[typeOfEvent] ?? 0;
-    if (!Number.isNaN(savedY)) window.scrollTo(0, savedY);
-    restoredRef.current[typeOfEvent] = true;
-  }, [isLoading, typeOfEvent, scrollYByType]);
+      if (isLoading) return;
+      if (restoredRef.current[typeOfEvent]) return;
+      const lastType = sessionStorage.getItem('lastClickedType');
+      const lastId = sessionStorage.getItem('lastClickedPageId');
+      const lastIndex = sessionStorage.getItem('lastClickedIndex');
+      if (lastType === typeOfEvent && lastId && lastIndex != null) {
+        return;
+      }
+      const savedY = scrollYByType?.[typeOfEvent] ?? 0;
+      if (!Number.isNaN(savedY)) window.scrollTo(0, savedY);
+      restoredRef.current[typeOfEvent] = true;
+    },
+    // eslint-disable-next-line
+    [isLoading, typeOfEvent, scrollYByType],
+  );
 
   useEffect(() => {
     if (isLoading) return;
@@ -342,7 +373,9 @@ const List = ({
     }
 
     const centerTarget = () => {
-      const targetEl = listRef.current?.querySelector(`[data-pageid="${lastId}"]`);
+      const targetEl = listRef.current?.querySelector(
+        `[data-pageid="${lastId}"]`,
+      );
       if (!targetEl) return false;
 
       targetEl.scrollIntoView({ block: 'center', behavior: 'auto' });
@@ -365,7 +398,14 @@ const List = ({
     sessionStorage.removeItem('lastClickedIndex');
     sessionStorage.removeItem('lastClickedScrollY');
     setIsRestoring(false);
-  }, [isRestoring, visibleItems.length, typeOfEvent, columns, rowVirtualizer, viewMode]);
+  }, [
+    isRestoring,
+    visibleItems.length,
+    typeOfEvent,
+    columns,
+    rowVirtualizer,
+    viewMode,
+  ]);
 
   return (
     <>
@@ -420,7 +460,11 @@ const List = ({
             <div className='category-header'>
               <span className='filters-title'>{t.category}</span>
               <div className='category-controls'>
-                <div className='view-toggle-icons' role='group' aria-label='View mode'>
+                <div
+                  className='view-toggle-icons'
+                  role='group'
+                  aria-label='View mode'
+                >
                   <button
                     className={`icon-toggle ${viewMode === 'grid' ? 'active' : ''}`}
                     onClick={() => setViewMode('grid')}
@@ -502,7 +546,11 @@ const List = ({
             isInitialLoading ? (
               <div className='list-row'>
                 {Array.from({ length: loadingCount }).map((_, index) => (
-                  <Card key={`loading-card-${index}`} loading language={language} />
+                  <Card
+                    key={`loading-card-${index}`}
+                    loading
+                    language={language}
+                  />
                 ))}
               </div>
             ) : (
@@ -512,7 +560,10 @@ const List = ({
               >
                 {virtualRows.map((virtualRow) => {
                   const startIndex = virtualRow.index * columns;
-                  const rowItems = visibleItems.slice(startIndex, startIndex + columns);
+                  const rowItems = visibleItems.slice(
+                    startIndex,
+                    startIndex + columns,
+                  );
 
                   return (
                     <div
@@ -545,19 +596,23 @@ const List = ({
           ) : (
             <div className='timeline-vertical'>
               {(isInitialLoading
-                ? Array.from({ length: 8 }, (_, index) => ({ _loading: true, id: index }))
+                ? loadingTimelineItems
                 : visibleItems
               ).map((el, index) => {
+                const isNodeLoading = Boolean(el?._loading);
                 const page = getPrimaryPage(el) || el?.pages?.[0];
-                const category = categorizeEvent(el);
-                const categoryMeta = getCategoryClassification(el);
+                const category = isNodeLoading ? 'all' : categorizeEvent(el);
+                const categoryMeta = isNodeLoading
+                  ? { category: '', source: '', confidence: 0 }
+                  : getCategoryClassification(el);
                 const categoryDebugTitle =
-                  process.env.NODE_ENV !== 'production'
+                  !isNodeLoading && process.env.NODE_ENV !== 'production'
                     ? `${categoryMeta.category} | ${categoryMeta.source} | ${categoryMeta.confidence}`
                     : undefined;
-                const categoryIcon = getCategoryIcon(category);
+                const categoryIcon = isNodeLoading
+                  ? null
+                  : getCategoryIcon(category);
                 const side = index % 2 === 0 ? 'left' : 'right';
-                const isNodeLoading = Boolean(el?._loading);
 
                 return (
                   <button
@@ -568,19 +623,33 @@ const List = ({
                     }
                     className={`timeline-node timeline-node--${side}`}
                     data-pageid={page?.pageid}
-                    onClick={() => (!isNodeLoading ? openEvent(el, typeOfEvent, index) : null)}
+                    onClick={() =>
+                      !isNodeLoading ? openEvent(el, typeOfEvent, index) : null
+                    }
                     disabled={isNodeLoading}
                   >
                     <span className='timeline-year-pill'>
-                      {isNodeLoading ? <Skeleton width='78px' height='22px' /> : el.year}
+                      {isNodeLoading ? (
+                        <Skeleton width='78px' height='22px' />
+                      ) : (
+                        el.year
+                      )}
                     </span>
                     {isNodeLoading ? (
                       <span className='timeline-marker' aria-hidden='true'>
                         <Skeleton variant='circle' width='40px' height='40px' />
                       </span>
                     ) : page?.thumbnail?.source ? (
-                      <span className='timeline-marker timeline-marker--image' aria-hidden='true'>
-                        <img src={page.thumbnail.source} alt='' />
+                      <span
+                        className='timeline-marker timeline-marker--image'
+                        aria-hidden='true'
+                      >
+                        <img
+                          src={page.thumbnail.source}
+                          alt=''
+                          loading='lazy'
+                          decoding='async'
+                        />
                       </span>
                     ) : (
                       <span className='timeline-marker' aria-hidden='true'>
@@ -604,14 +673,16 @@ const List = ({
                           className={`timeline-category timeline-category--${category}`}
                           title={categoryDebugTitle}
                           data-category-source={categoryMeta.source}
-                          data-category-confidence={String(categoryMeta.confidence)}
+                          data-category-confidence={String(
+                            categoryMeta.confidence,
+                          )}
                         >
                           <svg
                             className='timeline-category__icon'
-                            viewBox={categoryIcon.viewBox}
+                            viewBox={categoryIcon?.viewBox}
                             aria-hidden='true'
                           >
-                            {categoryIcon.paths.map((path) => (
+                            {categoryIcon?.paths.map((path) => (
                               <path key={path} d={path} />
                             ))}
                           </svg>
@@ -621,7 +692,11 @@ const List = ({
                       <p>
                         {isNodeLoading ? (
                           <>
-                            <Skeleton width='100%' height='12px' style={{ marginBottom: '5px' }} />
+                            <Skeleton
+                              width='100%'
+                              height='12px'
+                              style={{ marginBottom: '5px' }}
+                            />
                             <Skeleton width='94%' height='12px' />
                           </>
                         ) : (
@@ -637,10 +712,10 @@ const List = ({
         </div>
       )}
 
-      {(isInitialLoading ||
-        mostReadItems.length > 0 ||
-        newsItems.length > 0 ||
-        featuredArticle) ? (
+      {isInitialLoading ||
+      mostReadItems.length > 0 ||
+      newsItems.length > 0 ||
+      featuredArticle ? (
         <section className='featured-section'>
           <span className='featured-section__label'>{t.bonusInfo}</span>
           <section className='featured-panel'>
@@ -649,21 +724,33 @@ const List = ({
                 <h3>{t.trendingToday}</h3>
                 <div className='featured-most-read'>
                   {(isInitialLoading
-                    ? Array.from({ length: 4 }, (_, index) => ({ _loading: true, id: index }))
+                    ? loadingFeaturedMostRead
                     : mostReadItems
                   ).map((item, index) => (
                     <button
-                      key={item?._loading ? `trending-loading-${index}` : `${item.title}-${index}`}
+                      key={
+                        item?._loading
+                          ? `trending-loading-${index}`
+                          : `${item.title}-${index}`
+                      }
                       className='featured-most-read-item'
                       onClick={() =>
                         !item?._loading
-                          ? window.open(item.url, '_blank', 'noopener,noreferrer')
+                          ? window.open(
+                              item.url,
+                              '_blank',
+                              'noopener,noreferrer',
+                            )
                           : null
                       }
                       disabled={item?._loading}
                     >
                       <span className='featured-rank'>
-                        {item?._loading ? <Skeleton width='24px' height='11px' /> : `#${index + 1}`}
+                        {item?._loading ? (
+                          <Skeleton width='24px' height='11px' />
+                        ) : (
+                          `#${index + 1}`
+                        )}
                       </span>
                       <span className='featured-title'>
                         {item?._loading ? (
@@ -683,21 +770,33 @@ const List = ({
                 <h3>{t.inTheNews}</h3>
                 <div className='featured-news-strip'>
                   {(isInitialLoading
-                    ? Array.from({ length: 5 }, (_, index) => ({ _loading: true, id: index }))
+                    ? loadingFeaturedNews
                     : newsItems
                   ).map((item, index) => (
                     <button
-                      key={item?._loading ? `news-loading-${index}` : `${item.key}-${index}`}
+                      key={
+                        item?._loading
+                          ? `news-loading-${index}`
+                          : `${item.key}-${index}`
+                      }
                       className='featured-news-chip'
                       onClick={() =>
                         !item?._loading
-                          ? window.open(item.url, '_blank', 'noopener,noreferrer')
+                          ? window.open(
+                              item.url,
+                              '_blank',
+                              'noopener,noreferrer',
+                            )
                           : null
                       }
                       title={item.summary || item.title}
                       disabled={item?._loading}
                     >
-                      {item?._loading ? <Skeleton width='84px' height='12px' /> : item.title}
+                      {item?._loading ? (
+                        <Skeleton width='84px' height='12px' />
+                      ) : (
+                        item.title
+                      )}
                     </button>
                   ))}
                 </div>
@@ -711,7 +810,11 @@ const List = ({
                   className='featured-story-card'
                   onClick={() =>
                     !isInitialLoading
-                      ? window.open(featuredArticle.url, '_blank', 'noopener,noreferrer')
+                      ? window.open(
+                          featuredArticle.url,
+                          '_blank',
+                          'noopener,noreferrer',
+                        )
                       : null
                   }
                   title={featuredArticle?.summary || featuredArticle?.title}
@@ -726,8 +829,16 @@ const List = ({
                   </strong>
                   {isInitialLoading ? (
                     <p>
-                      <Skeleton width='100%' height='12px' style={{ marginBottom: '6px' }} />
-                      <Skeleton width='95%' height='12px' style={{ marginBottom: '6px' }} />
+                      <Skeleton
+                        width='100%'
+                        height='12px'
+                        style={{ marginBottom: '6px' }}
+                      />
+                      <Skeleton
+                        width='95%'
+                        height='12px'
+                        style={{ marginBottom: '6px' }}
+                      />
                       <Skeleton width='90%' height='12px' />
                     </p>
                   ) : featuredArticle.summary ? (

@@ -70,37 +70,36 @@ const Card = ({ data, eventType, itemIndex, language, loading = false }) => {
 
       <div
         className='card-image-bg'
-        style={{
-          backgroundImage: loading
-            ? 'none'
-            : `url(${page?.thumbnail?.source || noImage})`,
-          backgroundSize: 'cover',
-          backgroundPosition: 'center',
-          ...(loading || page?.thumbnail?.source
-            ? {}
-            : { opacity: 0.3, border: '1px solid gray' }),
-        }}
       >
         {loading ? (
           <Skeleton variant='rect' width='100%' height='100%' />
         ) : (
-          <span
-            className={`card-category-badge card-image-category-badge card-category-badge--${category}`}
-            title={categoryDebugTitle}
-            data-category-source={categoryMeta.source}
-            data-category-confidence={String(categoryMeta.confidence)}
-          >
-            <svg
-              className='card-category-badge__icon'
-              viewBox={categoryIcon.viewBox}
-              aria-hidden='true'
+          <>
+            <img
+              className={`card-image-media ${page?.thumbnail?.source ? '' : 'is-placeholder'}`}
+              src={page?.thumbnail?.source || noImage}
+              alt={page?.titles?.normalized || ''}
+              loading='lazy'
+              decoding='async'
+            />
+            <span
+              className={`card-category-badge card-image-category-badge card-category-badge--${category}`}
+              title={categoryDebugTitle}
+              data-category-source={categoryMeta.source}
+              data-category-confidence={String(categoryMeta.confidence)}
             >
-              {categoryIcon.paths.map((path) => (
-                <path key={path} d={path} />
-              ))}
-            </svg>
-            {t[category] || category}
-          </span>
+              <svg
+                className='card-category-badge__icon'
+                viewBox={categoryIcon.viewBox}
+                aria-hidden='true'
+              >
+                {categoryIcon.paths.map((path) => (
+                  <path key={path} d={path} />
+                ))}
+              </svg>
+              {t[category] || category}
+            </span>
+          </>
         )}
       </div>
       <span className='desc'>
