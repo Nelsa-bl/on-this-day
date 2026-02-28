@@ -7,8 +7,8 @@ import {
   getPrimaryPage,
 } from '../../utils/events/eventMeta';
 import { getCategoryIcon } from '../../utils/events/categoryBadge';
+import { getNoImagePlaceholder } from '../../utils/images/placeholder';
 import Skeleton from '../../components/skeleton/skeleton.component';
-import noImage from '../../assets/no_image.jpg';
 import './eventDetails.style.scss';
 
 const EventDetails = ({
@@ -234,7 +234,10 @@ const EventDetails = ({
 
   const primaryTitle =
     page?.titles?.normalized || wikiPage?.title || 'Unknown title';
-  const primaryImage = page?.thumbnail?.source || wikiPage?.thumbnail || '';
+  const primaryImage =
+    page?.thumbnail?.source ||
+    wikiPage?.thumbnail ||
+    getNoImagePlaceholder(t.noImageFound || 'No image found');
   const primaryDescription = page?.description || wikiPage?.description || '';
   const primaryExtract = page?.extract || wikiPage?.extract || '';
   const primaryText = event?.text || '';
@@ -507,7 +510,7 @@ const EventDetails = ({
               <img
                 className='event-details__hero'
                 alt={primaryTitle}
-                src={primaryImage || noImage}
+                src={primaryImage}
                 fetchPriority='high'
                 decoding='async'
               />
@@ -607,7 +610,10 @@ const EventDetails = ({
             >
               <img
                 className='event-details__related-image'
-                src={related?.thumbnail?.source || noImage}
+                src={
+                  related?.thumbnail?.source ||
+                  getNoImagePlaceholder(t.noImageFound || 'No image found')
+                }
                 alt={related?.titles?.normalized || ''}
                 loading='lazy'
                 decoding='async'
@@ -662,7 +668,10 @@ const EventDetails = ({
             >
               <img
                 className='event-details__related-image'
-                src={related.thumbnail || noImage}
+                src={
+                  related.thumbnail ||
+                  getNoImagePlaceholder(t.noImageFound || 'No image found')
+                }
                 alt={related.title || ''}
                 loading='lazy'
                 decoding='async'

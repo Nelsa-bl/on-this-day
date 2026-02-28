@@ -7,6 +7,7 @@ import {
   getPrimaryPage,
 } from '../../utils/events/eventMeta';
 import { getCategoryIcon } from '../../utils/events/categoryBadge';
+import { getNoImagePlaceholder } from '../../utils/images/placeholder';
 import Skeleton from '../skeleton/skeleton.component';
 import './card.style.scss';
 
@@ -27,6 +28,14 @@ const Card = ({ data, eventType, itemIndex, language, loading = false }) => {
       ? `${categoryMeta.category} | ${categoryMeta.source} | ${categoryMeta.confidence}`
       : undefined;
   const categoryIcon = getCategoryIcon(category);
+  const hasThumbnail = Boolean(page?.thumbnail?.source);
+  const imageSrc = hasThumbnail
+    ? page.thumbnail.source
+    : getNoImagePlaceholder(t.noImageFound || 'No image found');
+  const imageLoading =
+    !loading && typeof itemIndex === 'number' && itemIndex < 4 ? 'eager' : 'lazy';
+  const imageFetchPriority =
+    !loading && typeof itemIndex === 'number' && itemIndex === 0 ? 'high' : 'auto';
 
   const handleOpen = () => {
     if (loading) return;
@@ -76,10 +85,11 @@ const Card = ({ data, eventType, itemIndex, language, loading = false }) => {
         ) : (
           <>
             <img
-              className={`card-image-media ${page?.thumbnail?.source ? '' : 'is-placeholder'}`}
-              src={page?.thumbnail?.source || noImage}
+              className={`card-image-media ${hasThumbnail ? '' : 'is-placeholder'}`}
+              src={imageSrc || noImage}
               alt={page?.titles?.normalized || ''}
-              loading='lazy'
+              loading={imageLoading}
+              fetchPriority={imageFetchPriority}
               decoding='async'
             />
             <span

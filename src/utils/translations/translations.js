@@ -45,6 +45,7 @@ export const translations = {
     noRelations: 'No related articles',
     noCategoryMatches: 'No items matched this category.',
     tryAnotherCategory: 'Try another category.',
+    noImageFound: 'No image found',
     fetchFailed: 'Could not load events. Please try again.',
     retry: 'Retry',
     serbian: 'Serbian',
@@ -100,6 +101,7 @@ export const translations = {
     noRelations: 'Nema povezanih članaka',
     noCategoryMatches: 'Nema rezultata za odabranu kategoriju.',
     tryAnotherCategory: 'Probaj drugu kategoriju.',
+    noImageFound: 'Nema slike',
     fetchFailed: 'Učitavanje događaja nije uspjelo. Pokušaj ponovo.',
     retry: 'Pokušaj ponovo',
     date: (weekday, day, month, year) =>

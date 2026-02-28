@@ -346,9 +346,9 @@
 }
 
 .card-image-media.is-placeholder {
-  opacity: 0.35;
-  object-fit: contain;
-  padding: 18px;
+  opacity: 1;
+  object-fit: cover;
+  padding: 0;
 }
 
 .card-image-category-badge {
