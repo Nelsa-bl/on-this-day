@@ -6,8 +6,17 @@ import Header from './components/header/header';
 import Spinner from './components/spinner/spinner.component';
 import useSessionStorage from './utils/hooks/useSessionStorage';
 import useLocalStorage from './utils/hooks/useLocalStorage';
-import { Routes, Route } from 'react-router-dom';
-import { lazy, startTransition, Suspense, useEffect, useState } from 'react';
+import { Routes, Route, useLocation, useNavigate } from 'react-router-dom';
+import {
+  lazy,
+  startTransition,
+  Suspense,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+} from 'react';
 import { flushSync } from 'react-dom';
 import { getData, getFeaturedData } from './utils/apis/api';
 import { enrichEventsWithWikidataCategory } from './utils/events/wikidataCategory';
@@ -20,7 +29,11 @@ const EventDetails = lazy(() =>
   import('./pages/eventDetails/eventDetails.component'),
 );
 
+const LANGUAGE_PATTERN = /^[a-z-]{2,5}$/;
+
 const App = () => {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [language, setLanguage] = useSessionStorage('language', 'bs'); // Use session storage
   const [events, setEvents] = useState([]);
   const [isLoading, setIsLoading] = useState(false);
@@ -33,6 +46,66 @@ const App = () => {
     false
   );
   const [isDarkTheme, setIsDarkTheme] = useLocalStorage('isDarkTheme', false);
+  const pendingLanguageRef = useRef('');
+  const routeLanguage = useMemo(() => {
+    const searchLang = new URLSearchParams(location.search).get('lang') || '';
+    const normalizedLang = searchLang.toLowerCase();
+    return LANGUAGE_PATTERN.test(normalizedLang) ? normalizedLang : '';
+  }, [location.search]);
+  const resolvedLanguage = routeLanguage || language || 'bs';
+
+  useEffect(() => {
+    if (pendingLanguageRef.current) {
+      if (routeLanguage === pendingLanguageRef.current) {
+        pendingLanguageRef.current = '';
+      }
+      return;
+    }
+    if (!routeLanguage || routeLanguage === language) return;
+    setLanguage(routeLanguage);
+  }, [language, routeLanguage, setLanguage]);
+
+  const handleLanguageChange = useCallback(
+    (nextLanguage) => {
+      const normalizedLanguage = String(nextLanguage || '')
+        .toLowerCase()
+        .trim();
+      if (!LANGUAGE_PATTERN.test(normalizedLanguage)) return;
+      pendingLanguageRef.current = normalizedLanguage;
+
+      if (normalizedLanguage !== language) {
+        setLanguage(normalizedLanguage);
+      }
+
+      const searchParams = new URLSearchParams(location.search);
+      if (searchParams.get('lang') === normalizedLanguage) return;
+      searchParams.set('lang', normalizedLanguage);
+
+      navigate(
+        {
+          pathname: location.pathname,
+          search: `?${searchParams.toString()}`,
+        },
+        { replace: true },
+      );
+    },
+    [language, location.pathname, location.search, navigate, setLanguage],
+  );
+
+  useEffect(() => {
+    const searchParams = new URLSearchParams(location.search);
+    const currentLang = (searchParams.get('lang') || '').toLowerCase();
+    if (LANGUAGE_PATTERN.test(currentLang)) return;
+
+    searchParams.set('lang', resolvedLanguage);
+    navigate(
+      {
+        pathname: location.pathname,
+        search: `?${searchParams.toString()}`,
+      },
+      { replace: true },
+    );
+  }, [location.pathname, location.search, navigate, resolvedLanguage]);
 
   useEffect(() => {
     const controller = new AbortController();
@@ -43,7 +116,7 @@ const App = () => {
         setHasFetched(false);
         setError('');
         setFeaturedData(null);
-        const data = await getData(language, controller.signal);
+        const data = await getData(resolvedLanguage, controller.signal);
         if (!isCurrent) return;
         setEvents(data);
 
@@ -51,7 +124,7 @@ const App = () => {
         if (process.env.NODE_ENV !== 'test') {
           enrichEventsWithWikidataCategory({
             data,
-            language,
+            language: resolvedLanguage,
             signal: controller.signal,
           })
             .then((enrichedData) => {
@@ -75,7 +148,7 @@ const App = () => {
       isCurrent = false;
       controller.abort();
     };
-  }, [language, reloadKey]);
+  }, [reloadKey, resolvedLanguage]);
 
   useEffect(() => {
     let isCurrent = true;
@@ -85,9 +158,10 @@ const App = () => {
 
     const loadFeatured = async () => {
       try {
-        const featured = await getFeaturedData(language, controller.signal).catch(
-          () => null,
-        );
+        const featured = await getFeaturedData(
+          resolvedLanguage,
+          controller.signal,
+        ).catch(() => null);
         if (!isCurrent || controller.signal.aborted) return;
         startTransition(() => {
           setFeaturedData(featured);
@@ -112,12 +186,12 @@ const App = () => {
       if (idleId) window.cancelIdleCallback(idleId);
       if (timeoutId) window.clearTimeout(timeoutId);
     };
-  }, [language, reloadKey]);
+  }, [reloadKey, resolvedLanguage]);
 
   useEffect(() => {
     if (!dailyReminderEnabled) return () => {};
-    return startDailyReminder(language);
-  }, [dailyReminderEnabled, language]);
+    return startDailyReminder(resolvedLanguage);
+  }, [dailyReminderEnabled, resolvedLanguage]);
 
   useEffect(() => {
     const theme = isDarkTheme ? 'dark' : 'light';
@@ -162,8 +236,8 @@ const App = () => {
   return (
     <div className='App'>
       <Header
-        language={language}
-        setLanguage={setLanguage}
+        language={resolvedLanguage}
+        setLanguage={handleLanguageChange}
         weekday={weekday}
         day={day}
         month={month}
@@ -178,7 +252,8 @@ const App = () => {
           path='/'
           element={
             <List
-              language={language}
+              language={resolvedLanguage}
+              isDarkTheme={isDarkTheme}
               events={events}
               isLoading={isLoading}
               hasFetched={hasFetched}
@@ -193,7 +268,8 @@ const App = () => {
           element={
             <Suspense fallback={<Spinner />}>
               <EventDetails
-                language={language}
+                language={resolvedLanguage}
+                isDarkTheme={isDarkTheme}
                 events={events}
                 isLoading={isLoading}
                 appError={error}
@@ -208,3 +284,4 @@ const App = () => {
 };
 
 export default App;
+

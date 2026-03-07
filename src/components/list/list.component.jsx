@@ -21,6 +21,7 @@ const DEFAULT_SCROLL = { births: 0, events: 0, holidays: 0 };
 
 const List = ({
   language,
+  isDarkTheme,
   events,
   isLoading,
   hasFetched,
@@ -54,6 +55,7 @@ const List = ({
   const [isRestoring, setIsRestoring] = useState(false);
 
   const t = translations[language] || translations.bs;
+  const currentYear = new Date().getFullYear();
   const getCategoryLabel = (key) =>
     key === 'all' ? t.allCategories || 'All' : t[key] || key;
   const loadingTimelineItems = useMemo(
@@ -220,12 +222,16 @@ const List = ({
   const openEvent = (event, type = typeOfEvent, itemIndex = 0) => {
     const page = getPrimaryPage(event) || event?.pages?.[0];
     if (!page?.pageid) return;
+    const query = new URLSearchParams({
+      lang: language || 'en',
+      ...(event?.year ? { year: String(event.year) } : {}),
+    }).toString();
     sessionStorage.setItem('lastClickedPageId', String(page.pageid));
     sessionStorage.setItem('lastClickedType', String(type));
     sessionStorage.setItem('lastClickedIndex', String(itemIndex));
     sessionStorage.setItem('lastClickedScrollY', String(window.scrollY || 0));
 
-    navigate(`/event/${type}/${page.pageid}`, {
+    navigate(`/event/${type}/${page.pageid}?${query}`, {
       state: { event, eventType: type, wikiPage: page },
     });
   };
@@ -550,6 +556,7 @@ const List = ({
                     key={`loading-card-${index}`}
                     loading
                     language={language}
+                    isDarkTheme={isDarkTheme}
                   />
                 ))}
               </div>
@@ -586,6 +593,7 @@ const List = ({
                           eventType={typeOfEvent}
                           itemIndex={startIndex + index}
                           language={language}
+                          isDarkTheme={isDarkTheme}
                         />
                       ))}
                     </div>
@@ -601,6 +609,14 @@ const List = ({
               ).map((el, index) => {
                 const isNodeLoading = Boolean(el?._loading);
                 const page = getPrimaryPage(el) || el?.pages?.[0];
+                const eventYear = Number(el?.year);
+                const yearsAgo =
+                  !isNodeLoading &&
+                  Number.isFinite(eventYear) &&
+                  eventYear > 0 &&
+                  eventYear <= currentYear
+                    ? currentYear - eventYear
+                    : null;
                 const category = isNodeLoading ? 'all' : categorizeEvent(el);
                 const categoryMeta = isNodeLoading
                   ? { category: '', source: '', confidence: 0 }
@@ -658,7 +674,9 @@ const List = ({
                         </svg>
                       </span>
                     )}
-                    <div className='timeline-content-card'>
+                    <div
+                      className={`timeline-content-card ${yearsAgo != null ? 'timeline-content-card--with-years' : ''}`}
+                    >
                       <h3>
                         {isNodeLoading ? (
                           <Skeleton width='72%' height='17px' />
@@ -669,25 +687,37 @@ const List = ({
                       {isNodeLoading ? (
                         <Skeleton variant='pill' width='90px' height='20px' />
                       ) : (
-                        <span
-                          className={`timeline-category timeline-category--${category}`}
-                          title={categoryDebugTitle}
-                          data-category-source={categoryMeta.source}
-                          data-category-confidence={String(
-                            categoryMeta.confidence,
-                          )}
-                        >
-                          <svg
-                            className='timeline-category__icon'
-                            viewBox={categoryIcon?.viewBox}
-                            aria-hidden='true'
+                        <div className='timeline-meta-row'>
+                          {side === 'left' && yearsAgo != null ? (
+                            <span className='timeline-years-ago'>
+                              {yearsAgo} {t.yearsAgo}
+                            </span>
+                          ) : null}
+                          <span
+                            className={`timeline-category timeline-category--${category}`}
+                            title={categoryDebugTitle}
+                            data-category-source={categoryMeta.source}
+                            data-category-confidence={String(
+                              categoryMeta.confidence,
+                            )}
                           >
-                            {categoryIcon?.paths.map((path) => (
-                              <path key={path} d={path} />
-                            ))}
-                          </svg>
-                          {t[category] || category}
-                        </span>
+                            <svg
+                              className='timeline-category__icon'
+                              viewBox={categoryIcon?.viewBox}
+                              aria-hidden='true'
+                            >
+                              {categoryIcon?.paths.map((path) => (
+                                <path key={path} d={path} />
+                              ))}
+                            </svg>
+                            {t[category] || category}
+                          </span>
+                          {side !== 'left' && yearsAgo != null ? (
+                            <span className='timeline-years-ago'>
+                              {yearsAgo} {t.yearsAgo}
+                            </span>
+                          ) : null}
+                        </div>
                       )}
                       <p>
                         {isNodeLoading ? (
@@ -855,3 +885,4 @@ const List = ({
 };
 
 export default List;
+

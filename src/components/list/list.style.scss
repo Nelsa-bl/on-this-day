@@ -441,12 +441,31 @@
   margin-top: 10px;
 }
 
+.timeline-content-card--with-years {
+  padding-top: 14px;
+}
+
 .timeline-node--left .timeline-content-card {
   text-align: right;
 }
 
 .timeline-content-card h3 {
   margin: 0 0 6px;
+}
+
+.timeline-meta-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 22px;
+}
+
+.timeline-node--left .timeline-meta-row {
+  justify-content: flex-end;
+}
+
+.timeline-node--right .timeline-meta-row {
+  justify-content: flex-start;
 }
 
 .timeline-content-card p {
@@ -506,8 +525,19 @@
   border-color: #bce7ea;
 }
 
-.timeline-node--left .timeline-category {
-  margin-left: auto;
+.timeline-meta-row .timeline-category {
+  margin-left: 0;
+}
+
+.timeline-years-ago {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  border: 1px solid var(--color-light--2);
+  padding: 3px 7px;
+  background: var(--color-surface--2);
+  color: var(--color-main--1);
 }
 
 @media (max-width: 768px) {
@@ -607,6 +637,32 @@
   .timeline-node--left .timeline-content-card,
   .timeline-node--right .timeline-content-card {
     text-align: left;
+  }
+
+  .timeline-content-card--with-years {
+    padding-top: 14px;
+  }
+
+  .timeline-meta-row {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .timeline-node--left .timeline-meta-row,
+  .timeline-node--right .timeline-meta-row {
+    justify-content: flex-start;
+  }
+
+  .timeline-node .timeline-category {
+    order: 1;
+  }
+
+  .timeline-node .timeline-years-ago {
+    order: 2;
+  }
+
+  .timeline-years-ago {
+    position: static;
   }
 
   .timeline-node--left .timeline-category,

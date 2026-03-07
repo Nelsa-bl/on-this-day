@@ -2,7 +2,7 @@ import { getPrimaryPage } from './eventMeta';
 
 const PAGEIDS_CHUNK_SIZE = 50;
 const ENTITY_IDS_CHUNK_SIZE = 50;
-const CACHE_KEY = 'wikidata-category-cache-v2';
+const CACHE_KEY = 'wikidata-category-cache-v3';
 const CACHE_TTL_MS = 1000 * 60 * 60 * 24 * 14; // 14 days
 const MAX_PAGE_IDS_PER_PASS = 120;
 
@@ -126,32 +126,50 @@ const hasClaim = (entity, propertyId) =>
 const inferCategoryFromEntity = (entity) => {
   if (!entity) return null;
   const isHuman = hasAny(entity, 'P31', HUMAN_INSTANCE_QIDS);
+  const hasOccupation = hasClaim(entity, 'P106');
+  const hasSport = hasClaim(entity, 'P641');
+  const hasConflict = hasClaim(entity, 'P607');
+  const hasSportsOccupation = hasAny(entity, 'P106', SPORTS_OCCUPATION_QIDS);
+  const hasScienceOccupation = hasAny(entity, 'P106', SCIENCE_OCCUPATION_QIDS);
+  const hasCultureOccupation = hasAny(entity, 'P106', CULTURE_OCCUPATION_QIDS);
+  const hasPoliticsOccupation = hasAny(entity, 'P106', POLITICS_OCCUPATION_QIDS);
+  const hasPosition = hasClaim(entity, 'P39');
+
+  // For people, occupation and held office are stronger signals than generic sport tags.
+  if (isHuman) {
+    if (hasPoliticsOccupation || hasPosition) return 'politics';
+    if (hasScienceOccupation) return 'science';
+    if (hasCultureOccupation) return 'culture';
+    if (hasSportsOccupation || hasSport) return 'sports';
+    // Some biographies include conflict participation; don't override professions.
+    if (hasConflict && !hasOccupation) return 'war';
+  }
 
   if (
     hasAny(entity, 'P31', SPORTS_INSTANCE_QIDS) ||
-    hasClaim(entity, 'P641') ||
-    hasAny(entity, 'P106', SPORTS_OCCUPATION_QIDS)
+    hasSport ||
+    hasSportsOccupation
   ) {
     return 'sports';
   }
 
   if (
     hasAny(entity, 'P31', WAR_INSTANCE_QIDS) ||
-    hasClaim(entity, 'P607') // conflict
+    (!isHuman && hasConflict) // conflict
   ) {
     return 'war';
   }
 
   if (
     hasAny(entity, 'P31', SCIENCE_INSTANCE_QIDS) ||
-    hasAny(entity, 'P106', SCIENCE_OCCUPATION_QIDS)
+    hasScienceOccupation
   ) {
     return 'science';
   }
 
   if (
     hasAny(entity, 'P31', CULTURE_INSTANCE_QIDS) ||
-    hasAny(entity, 'P106', CULTURE_OCCUPATION_QIDS) ||
+    hasCultureOccupation ||
     hasClaim(entity, 'P136') // genre
   ) {
     return 'culture';
@@ -159,15 +177,15 @@ const inferCategoryFromEntity = (entity) => {
 
   if (
     hasAny(entity, 'P31', POLITICS_INSTANCE_QIDS) ||
-    hasAny(entity, 'P106', POLITICS_OCCUPATION_QIDS)
+    hasPoliticsOccupation
   ) {
     return 'politics';
   }
 
   if (isHuman) {
     // For biographies, party membership alone should not override arts/sports/science.
-    if (hasClaim(entity, 'P39')) return 'politics'; // position held
-  } else if (hasClaim(entity, 'P39') || hasClaim(entity, 'P102')) {
+    if (hasPosition) return 'politics'; // position held
+  } else if (hasPosition || hasClaim(entity, 'P102')) {
     // For non-human entities (institutions/events), these are stronger political signals.
     return 'politics';
   }

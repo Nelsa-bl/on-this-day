@@ -11,7 +11,14 @@ import { getNoImagePlaceholder } from '../../utils/images/placeholder';
 import Skeleton from '../skeleton/skeleton.component';
 import './card.style.scss';
 
-const Card = ({ data, eventType, itemIndex, language, loading = false }) => {
+const Card = ({
+  data,
+  eventType,
+  itemIndex,
+  language,
+  isDarkTheme = false,
+  loading = false,
+}) => {
   const navigate = useNavigate();
   const page = getPrimaryPage(data) || data?.pages?.[0];
   const t = translations[language] || translations.bs;
@@ -31,7 +38,9 @@ const Card = ({ data, eventType, itemIndex, language, loading = false }) => {
   const hasThumbnail = Boolean(page?.thumbnail?.source);
   const imageSrc = hasThumbnail
     ? page.thumbnail.source
-    : getNoImagePlaceholder(t.noImageFound || 'No image found');
+    : getNoImagePlaceholder(t.noImageFound || 'No image found', {
+        isDark: isDarkTheme,
+      });
   const imageLoading =
     !loading && typeof itemIndex === 'number' && itemIndex < 4 ? 'eager' : 'lazy';
   const imageFetchPriority =
@@ -40,11 +49,15 @@ const Card = ({ data, eventType, itemIndex, language, loading = false }) => {
   const handleOpen = () => {
     if (loading) return;
     if (!page?.pageid) return;
+    const query = new URLSearchParams({
+      lang: language || 'en',
+      ...(data?.year ? { year: String(data.year) } : {}),
+    }).toString();
     sessionStorage.setItem('lastClickedPageId', String(page.pageid));
     sessionStorage.setItem('lastClickedType', String(eventType));
     sessionStorage.setItem('lastClickedIndex', String(itemIndex));
     sessionStorage.setItem('lastClickedScrollY', String(window.scrollY || 0));
-    navigate(`/event/${eventType}/${page.pageid}`, {
+    navigate(`/event/${eventType}/${page.pageid}?${query}`, {
       state: { event: data, eventType, wikiPage: page },
     });
   };
@@ -166,3 +179,4 @@ const Card = ({ data, eventType, itemIndex, language, loading = false }) => {
 };
 
 export default Card;
+

@@ -62,9 +62,13 @@ const shareEvent = async (request) => {
     return Response.redirect(`${origin}/`, 302);
   }
 
+  const detailQuery = new URLSearchParams({
+    lang,
+    ...(searchParams.get('year') ? { year: searchParams.get('year') } : {}),
+  }).toString();
   const appDetailUrl = `${origin}/event/${encodeURIComponent(
     type,
-  )}/${encodeURIComponent(pageId)}`;
+  )}/${encodeURIComponent(pageId)}?${detailQuery}`;
   const meta = await getWikiMeta({ lang, pageId });
   const title = escapeHtml(meta.title);
   const description = escapeHtml(meta.description.slice(0, 300));
@@ -295,3 +299,4 @@ const shareEvent = async (request) => {
 };
 
 export default shareEvent;
+

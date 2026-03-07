@@ -13,6 +13,7 @@ import './eventDetails.style.scss';
 
 const EventDetails = ({
   language,
+  isDarkTheme,
   events,
   isLoading: isLoadingList,
   appError,
@@ -237,7 +238,9 @@ const EventDetails = ({
   const primaryImage =
     page?.thumbnail?.source ||
     wikiPage?.thumbnail ||
-    getNoImagePlaceholder(t.noImageFound || 'No image found');
+    getNoImagePlaceholder(t.noImageFound || 'No image found', {
+      isDark: isDarkTheme,
+    });
   const primaryDescription = page?.description || wikiPage?.description || '';
   const primaryExtract = page?.extract || wikiPage?.extract || '';
   const primaryText = event?.text || '';
@@ -612,7 +615,9 @@ const EventDetails = ({
                 className='event-details__related-image'
                 src={
                   related?.thumbnail?.source ||
-                  getNoImagePlaceholder(t.noImageFound || 'No image found')
+                  getNoImagePlaceholder(t.noImageFound || 'No image found', {
+                    isDark: isDarkTheme,
+                  })
                 }
                 alt={related?.titles?.normalized || ''}
                 loading='lazy'
@@ -670,7 +675,9 @@ const EventDetails = ({
                 className='event-details__related-image'
                 src={
                   related.thumbnail ||
-                  getNoImagePlaceholder(t.noImageFound || 'No image found')
+                  getNoImagePlaceholder(t.noImageFound || 'No image found', {
+                    isDark: isDarkTheme,
+                  })
                 }
                 alt={related.title || ''}
                 loading='lazy'
