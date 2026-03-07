@@ -17,6 +17,7 @@ const Card = ({
   itemIndex,
   language,
   isDarkTheme = false,
+  categoryFilter = 'all',
   loading = false,
 }) => {
   const navigate = useNavigate();
@@ -52,6 +53,8 @@ const Card = ({
     const query = new URLSearchParams({
       lang: language || 'en',
       ...(data?.year ? { year: String(data.year) } : {}),
+      ...(eventType ? { type: eventType } : {}),
+      ...(categoryFilter ? { category: categoryFilter } : {}),
     }).toString();
     sessionStorage.setItem('lastClickedPageId', String(page.pageid));
     sessionStorage.setItem('lastClickedType', String(eventType));

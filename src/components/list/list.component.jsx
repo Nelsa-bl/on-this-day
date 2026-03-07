@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 import { useWindowVirtualizer } from '@tanstack/react-virtual';
 import { translations } from '../../utils/translations/translations';
 import {
@@ -18,6 +18,7 @@ import Skeleton from '../skeleton/skeleton.component';
 import './list.style.scss';
 
 const DEFAULT_SCROLL = { births: 0, events: 0, holidays: 0 };
+const EVENT_TYPES = ['births', 'events', 'holidays'];
 
 const List = ({
   language,
@@ -30,6 +31,7 @@ const List = ({
   onRetry,
 }) => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [typeOfEvent, setTypeOfEvent] = useSessionStorage(
     'typeOfEvent',
     'births',
@@ -51,6 +53,7 @@ const List = ({
   const listRef = useRef(null);
   const restoredRef = useRef({});
   const scrollYRef = useRef(DEFAULT_SCROLL);
+  const hasHydratedRouteFiltersRef = useRef(false);
   const [columns, setColumns] = useState(5);
   const [isRestoring, setIsRestoring] = useState(false);
 
@@ -225,6 +228,8 @@ const List = ({
     const query = new URLSearchParams({
       lang: language || 'en',
       ...(event?.year ? { year: String(event.year) } : {}),
+      ...(type ? { type } : {}),
+      ...(categoryFilter ? { category: categoryFilter } : {}),
     }).toString();
     sessionStorage.setItem('lastClickedPageId', String(page.pageid));
     sessionStorage.setItem('lastClickedType', String(type));
@@ -235,6 +240,71 @@ const List = ({
       state: { event, eventType: type, wikiPage: page },
     });
   };
+
+  useEffect(() => {
+    if (location.pathname !== '/') {
+      hasHydratedRouteFiltersRef.current = false;
+      return;
+    }
+    if (hasHydratedRouteFiltersRef.current) return;
+
+    const searchParams = new URLSearchParams(location.search);
+    const routeType = searchParams.get('type');
+    const routeCategory = searchParams.get('category');
+
+    if (routeType && EVENT_TYPES.includes(routeType) && routeType !== typeOfEvent) {
+      setTypeOfEvent(routeType);
+    }
+
+    if (
+      routeCategory &&
+      CATEGORY_OPTIONS.includes(routeCategory) &&
+      routeCategory !== categoryFilter
+    ) {
+      setCategoryFilter(routeCategory);
+    }
+    hasHydratedRouteFiltersRef.current = true;
+  }, [
+    categoryFilter,
+    location.pathname,
+    location.search,
+    setCategoryFilter,
+    setTypeOfEvent,
+    typeOfEvent,
+  ]);
+
+  useEffect(() => {
+    if (location.pathname !== '/') return;
+
+    const searchParams = new URLSearchParams(location.search);
+    let shouldUpdate = false;
+
+    if (searchParams.get('type') !== typeOfEvent) {
+      searchParams.set('type', typeOfEvent);
+      shouldUpdate = true;
+    }
+
+    if (searchParams.get('category') !== categoryFilter) {
+      searchParams.set('category', categoryFilter);
+      shouldUpdate = true;
+    }
+
+    if (!shouldUpdate) return;
+
+    navigate(
+      {
+        pathname: location.pathname,
+        search: `?${searchParams.toString()}`,
+      },
+      { replace: true },
+    );
+  }, [
+    categoryFilter,
+    location.pathname,
+    location.search,
+    navigate,
+    typeOfEvent,
+  ]);
 
   const randomSurprise = () => {
     const pools = ['births', 'events', 'holidays']
@@ -557,6 +627,7 @@ const List = ({
                     loading
                     language={language}
                     isDarkTheme={isDarkTheme}
+                    categoryFilter={categoryFilter}
                   />
                 ))}
               </div>
@@ -594,6 +665,7 @@ const List = ({
                           itemIndex={startIndex + index}
                           language={language}
                           isDarkTheme={isDarkTheme}
+                          categoryFilter={categoryFilter}
                         />
                       ))}
                     </div>
