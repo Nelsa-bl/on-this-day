@@ -20,6 +20,7 @@ import {
 import { flushSync } from 'react-dom';
 import { getData, getFeaturedData } from './utils/apis/api';
 import { enrichEventsWithWikidataCategory } from './utils/events/wikidataCategory';
+import { normalizeEventsData } from './utils/events/normalizeEvents';
 import {
   requestNotificationPermission,
   startDailyReminder,
@@ -116,7 +117,9 @@ const App = () => {
         setHasFetched(false);
         setError('');
         setFeaturedData(null);
-        const data = await getData(resolvedLanguage, controller.signal);
+        const data = normalizeEventsData(
+          await getData(resolvedLanguage, controller.signal),
+        );
         if (!isCurrent) return;
         setEvents(data);
 
@@ -126,10 +129,10 @@ const App = () => {
             data,
             language: resolvedLanguage,
             signal: controller.signal,
-          })
+            })
             .then((enrichedData) => {
               if (!isCurrent || controller.signal.aborted || !enrichedData) return;
-              setEvents({ ...enrichedData });
+              setEvents(normalizeEventsData(enrichedData));
             })
             .catch(() => {});
         }

@@ -1,6 +1,8 @@
 const STATIC_CACHE = 'on-this-day-static-v1';
 const API_CACHE = 'on-this-day-api-v1';
 const IMAGE_CACHE = 'on-this-day-images-v1';
+const MAX_API_CACHE_ITEMS = 80;
+const MAX_IMAGE_CACHE_ITEMS = 160;
 
 self.addEventListener('install', () => {
   self.skipWaiting();
@@ -35,12 +37,23 @@ const staleWhileRevalidate = async (request, cacheName) => {
   const cached = await cache.match(request);
   const networkPromise = fetch(request)
     .then((response) => {
-      if (response.ok) cache.put(request, response.clone());
+      if (response.ok) {
+        cache.put(request, response.clone());
+        trimCache(cacheName, cacheName === IMAGE_CACHE ? MAX_IMAGE_CACHE_ITEMS : MAX_API_CACHE_ITEMS);
+      }
       return response;
     })
     .catch(() => cached);
 
   return cached || networkPromise;
+};
+
+const trimCache = async (cacheName, maxItems) => {
+  const cache = await caches.open(cacheName);
+  const keys = await cache.keys();
+  if (keys.length <= maxItems) return;
+
+  await Promise.all(keys.slice(0, keys.length - maxItems).map((key) => cache.delete(key)));
 };
 
 const networkFirst = async (request, cacheName) => {
@@ -68,7 +81,7 @@ self.addEventListener('fetch', (event) => {
   }
 
   if (isCacheableApiRequest(url)) {
-    event.respondWith(networkFirst(request, API_CACHE));
+    event.respondWith(staleWhileRevalidate(request, API_CACHE));
   }
 });
 

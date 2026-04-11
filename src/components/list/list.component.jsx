@@ -4,10 +4,12 @@ import { useWindowVirtualizer } from '@tanstack/react-virtual';
 import { translations } from '../../utils/translations/translations';
 import {
   CATEGORY_OPTIONS,
-  categorizeEvent,
-  getCategoryClassification,
-  getPrimaryPage,
 } from '../../utils/events/eventMeta';
+import {
+  getEventCategory,
+  getEventCategoryMeta,
+  getEventPrimaryPage,
+} from '../../utils/events/normalizeEvents';
 import { getCategoryIcon } from '../../utils/events/categoryBadge';
 
 import Card from '../card/card.component';
@@ -58,7 +60,6 @@ const List = ({
   const [isRestoring, setIsRestoring] = useState(false);
 
   const t = translations[language] || translations.bs;
-  const currentYear = new Date().getFullYear();
   const getCategoryLabel = (key) =>
     key === 'all' ? t.allCategories || 'All' : t[key] || key;
   const loadingTimelineItems = useMemo(
@@ -90,9 +91,7 @@ const List = ({
 
   const filteredItems = useMemo(() => {
     if (categoryFilter === 'all') return sortByYear;
-    return sortByYear.filter(
-      (event) => categorizeEvent(event) === categoryFilter,
-    );
+    return sortByYear.filter((event) => getEventCategory(event) === categoryFilter);
   }, [categoryFilter, sortByYear]);
 
   const visibleItems = filteredItems;
@@ -112,7 +111,7 @@ const List = ({
     for (const key of ['events', 'births', 'holidays']) {
       const items = events?.[key] || [];
       for (const item of items) {
-        const page = getPrimaryPage(item);
+        const page = getEventPrimaryPage(item);
         if (page?.titles?.normalized) flattened.push(item);
       }
     }
@@ -133,7 +132,7 @@ const List = ({
     // Fallback from local on-this-day data when feed mostread is unavailable.
     return onThisDayFlat
       .map((item) => {
-        const page = getPrimaryPage(item);
+        const page = getEventPrimaryPage(item);
         return {
           title: page?.titles?.normalized || '',
           url:
@@ -169,7 +168,7 @@ const List = ({
     return onThisDayFlat
       .slice(6)
       .map((item, index) => {
-        const page = getPrimaryPage(item);
+        const page = getEventPrimaryPage(item);
         return {
           key: `${item?.year}-${index}`,
           title: page?.titles?.normalized || '',
@@ -195,7 +194,7 @@ const List = ({
 
     // Fallback from local on-this-day data when TFA is unavailable.
     const fallback = onThisDayFlat.find((item) => {
-      const page = getPrimaryPage(item);
+      const page = getEventPrimaryPage(item);
       return (
         page?.titles?.normalized &&
         (page?.content_urls?.desktop?.page || page?.content_urls?.mobile?.page)
@@ -203,7 +202,7 @@ const List = ({
     });
 
     if (!fallback) return null;
-    const page = getPrimaryPage(fallback);
+    const page = getEventPrimaryPage(fallback);
     return {
       title: page?.titles?.normalized || '',
       url:
@@ -219,11 +218,17 @@ const List = ({
     estimateSize: () => 520,
     overscan: 5,
   });
+  const timelineVirtualizer = useWindowVirtualizer({
+    count: viewMode === 'timeline' && !isInitialLoading ? visibleItems.length : 0,
+    estimateSize: () => 190,
+    overscan: 8,
+  });
 
   const virtualRows = rowVirtualizer.getVirtualItems();
+  const virtualTimelineItems = timelineVirtualizer.getVirtualItems();
 
   const openEvent = (event, type = typeOfEvent, itemIndex = 0) => {
-    const page = getPrimaryPage(event) || event?.pages?.[0];
+      const page = getEventPrimaryPage(event);
     if (!page?.pageid) return;
     const query = new URLSearchParams({
       lang: language || 'en',
@@ -446,6 +451,8 @@ const List = ({
     if (viewMode === 'grid') {
       const rowIndex = Math.floor(targetIndex / columns);
       rowVirtualizer.scrollToIndex(rowIndex, { align: 'center' });
+    } else {
+      timelineVirtualizer.scrollToIndex(targetIndex, { align: 'center' });
     }
 
     const centerTarget = () => {
@@ -480,6 +487,7 @@ const List = ({
     typeOfEvent,
     columns,
     rowVirtualizer,
+    timelineVirtualizer,
     viewMode,
   ]);
 
@@ -673,26 +681,16 @@ const List = ({
                 })}
               </div>
             )
-          ) : (
+          ) : isInitialLoading ? (
             <div className='timeline-vertical'>
-              {(isInitialLoading
-                ? loadingTimelineItems
-                : visibleItems
-              ).map((el, index) => {
+              {loadingTimelineItems.map((el, index) => {
                 const isNodeLoading = Boolean(el?._loading);
-                const page = getPrimaryPage(el) || el?.pages?.[0];
-                const eventYear = Number(el?.year);
-                const yearsAgo =
-                  !isNodeLoading &&
-                  Number.isFinite(eventYear) &&
-                  eventYear > 0 &&
-                  eventYear <= currentYear
-                    ? currentYear - eventYear
-                    : null;
-                const category = isNodeLoading ? 'all' : categorizeEvent(el);
+                const page = getEventPrimaryPage(el);
+                const yearsAgo = !isNodeLoading ? el?._yearsAgo ?? null : null;
+                const category = isNodeLoading ? 'all' : getEventCategory(el);
                 const categoryMeta = isNodeLoading
                   ? { category: '', source: '', confidence: 0 }
-                  : getCategoryClassification(el);
+                  : getEventCategoryMeta(el);
                 const categoryDebugTitle =
                   !isNodeLoading && process.env.NODE_ENV !== 'production'
                     ? `${categoryMeta.category} | ${categoryMeta.source} | ${categoryMeta.confidence}`
@@ -805,6 +803,104 @@ const List = ({
                           el.text
                         )}
                       </p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <div
+              className='timeline-vertical timeline-vertical--virtual'
+              style={{
+                height: `${timelineVirtualizer.getTotalSize()}px`,
+                position: 'relative',
+              }}
+            >
+              {virtualTimelineItems.map((virtualItem) => {
+                const index = virtualItem.index;
+                const el = visibleItems[index];
+                const page = getEventPrimaryPage(el);
+                const yearsAgo = el?._yearsAgo ?? null;
+                const category = getEventCategory(el);
+                const categoryMeta = getEventCategoryMeta(el);
+                const categoryDebugTitle =
+                  process.env.NODE_ENV !== 'production'
+                    ? `${categoryMeta.category} | ${categoryMeta.source} | ${categoryMeta.confidence}`
+                    : undefined;
+                const categoryIcon = getCategoryIcon(category);
+                const side = index % 2 === 0 ? 'left' : 'right';
+
+                return (
+                  <button
+                    key={`${el?.year}-${page?.pageid || index}`}
+                    ref={timelineVirtualizer.measureElement}
+                    data-index={virtualItem.index}
+                    className={`timeline-node timeline-node--${side}`}
+                    data-pageid={page?.pageid}
+                    onClick={() => openEvent(el, typeOfEvent, index)}
+                    style={{
+                      position: 'absolute',
+                      top: 0,
+                      ...(side === 'left' ? { left: 0 } : { right: 0 }),
+                      transform: `translateY(${virtualItem.start}px)`,
+                    }}
+                  >
+                    <span className='timeline-year-pill'>{el.year}</span>
+                    {page?.thumbnail?.source ? (
+                      <span
+                        className='timeline-marker timeline-marker--image'
+                        aria-hidden='true'
+                      >
+                        <img
+                          src={page.thumbnail.source}
+                          alt=''
+                          loading='lazy'
+                          decoding='async'
+                        />
+                      </span>
+                    ) : (
+                      <span className='timeline-marker' aria-hidden='true'>
+                        <svg viewBox='0 0 24 24'>
+                          <path d='M12 2a10 10 0 1 0 10 10A10 10 0 0 0 12 2Zm0 14a4 4 0 1 1 4-4 4 4 0 0 1-4 4Z' />
+                        </svg>
+                      </span>
+                    )}
+                    <div
+                      className={`timeline-content-card ${yearsAgo != null ? 'timeline-content-card--with-years' : ''}`}
+                    >
+                      <h3>{page?.titles?.normalized || el.text}</h3>
+                      <div className='timeline-meta-row'>
+                        {side === 'left' && yearsAgo != null ? (
+                          <span className='timeline-years-ago'>
+                            {yearsAgo} {t.yearsAgo}
+                          </span>
+                        ) : null}
+                        <span
+                          className={`timeline-category timeline-category--${category}`}
+                          title={categoryDebugTitle}
+                          data-category-source={categoryMeta.source}
+                          data-category-confidence={String(
+                            categoryMeta.confidence,
+                          )}
+                        >
+                          <svg
+                            className='timeline-category__icon'
+                            viewBox={categoryIcon?.viewBox}
+                            aria-hidden='true'
+                          >
+                            {categoryIcon?.paths.map((path) => (
+                              <path key={path} d={path} />
+                            ))}
+                          </svg>
+                          {t[category] || category}
+                        </span>
+                        {side !== 'left' && yearsAgo != null ? (
+                          <span className='timeline-years-ago'>
+                            {yearsAgo} {t.yearsAgo}
+                          </span>
+                        ) : null}
+                      </div>
+                      <p>{el.text}</p>
                     </div>
                   </button>
                 );

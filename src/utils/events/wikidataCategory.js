@@ -256,6 +256,7 @@ export const enrichEventsWithWikidataCategory = async ({
   if (!data) return data;
   const groups = ['births', 'events', 'holidays'];
   const pageIds = new Set();
+  const cachedCategoryByPageId = {};
   const cache = typeof window !== 'undefined' ? readCache() : {};
   const now = Date.now();
 
@@ -272,8 +273,10 @@ export const enrichEventsWithWikidataCategory = async ({
         now - Number(cached.updatedAt || 0) < CACHE_TTL_MS;
 
       if (isFresh) {
-        event._derivedCategory = cached.category;
-        event._derivedCategorySource = cached.source || 'wikidata-cache';
+        cachedCategoryByPageId[pageIdStr] = {
+          category: cached.category,
+          source: cached.source || 'wikidata-cache',
+        };
         return;
       }
 
@@ -281,7 +284,32 @@ export const enrichEventsWithWikidataCategory = async ({
     });
   });
 
-  if (pageIds.size === 0) return data;
+  const applyCategories = (categoryByPageId) => {
+    if (!Object.keys(categoryByPageId).length) return data;
+
+    const nextData = { ...data };
+    groups.forEach((group) => {
+      nextData[group] = (data?.[group] || []).map((event) => {
+        const pageId = String(
+          getPrimaryPage(event)?.pageid ?? event?.pages?.[0]?.pageid ?? '',
+        );
+        const derived = categoryByPageId[pageId];
+        if (!derived) return event;
+
+        return {
+          ...event,
+          _normalizedEvent: false,
+          _derivedCategory: derived.category,
+          _derivedCategorySource: derived.source,
+          _derivedCategoryPageId: pageId,
+        };
+      });
+    });
+
+    return nextData;
+  };
+
+  if (pageIds.size === 0) return applyCategories(cachedCategoryByPageId);
 
   try {
     const pageIdToItem = await fetchWikibaseItemsByPageId({
@@ -290,39 +318,35 @@ export const enrichEventsWithWikidataCategory = async ({
       signal,
     });
     const entityIds = Array.from(new Set(Object.values(pageIdToItem)));
-    if (entityIds.length === 0) return data;
+    if (entityIds.length === 0) return applyCategories(cachedCategoryByPageId);
 
     const categoryByEntityId = await fetchEntityCategoryMap({
       entityIds,
       signal,
     });
+    const categoryByPageId = { ...cachedCategoryByPageId };
 
-    groups.forEach((group) => {
-      (data?.[group] || []).forEach((event) => {
-        const pageId = String(
-          getPrimaryPage(event)?.pageid ?? event?.pages?.[0]?.pageid ?? '',
-        );
-        const entityId = pageIdToItem[pageId];
-        const derivedCategory = categoryByEntityId[entityId];
-        if (derivedCategory) {
-          event._derivedCategory = derivedCategory;
-          event._derivedCategorySource = 'wikidata';
-          event._derivedCategoryPageId = pageId;
-          cache[pageId] = {
-            category: derivedCategory,
-            source: 'wikidata-cache',
-            updatedAt: now,
-          };
-        }
-      });
+    Object.entries(pageIdToItem).forEach(([pageId, entityId]) => {
+      const derivedCategory = categoryByEntityId[entityId];
+      if (!derivedCategory) return;
+
+      categoryByPageId[pageId] = {
+        category: derivedCategory,
+        source: 'wikidata',
+      };
+      cache[pageId] = {
+        category: derivedCategory,
+        source: 'wikidata-cache',
+        updatedAt: now,
+      };
     });
 
     if (typeof window !== 'undefined') {
       writeCache(cache);
     }
-  } catch {
-    return data;
-  }
 
-  return data;
+    return applyCategories(categoryByPageId);
+  } catch {
+    return applyCategories(cachedCategoryByPageId);
+  }
 };

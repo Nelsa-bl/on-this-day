@@ -1,11 +1,12 @@
+import { useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import noImage from '../../assets/no_image.jpg';
 import { translations } from '../../utils/translations/translations';
 import {
-  categorizeEvent,
-  getCategoryClassification,
-  getPrimaryPage,
-} from '../../utils/events/eventMeta';
+  getEventCategory,
+  getEventCategoryMeta,
+  getEventPrimaryPage,
+} from '../../utils/events/normalizeEvents';
 import { getCategoryIcon } from '../../utils/events/categoryBadge';
 import { getNoImagePlaceholder } from '../../utils/images/placeholder';
 import Skeleton from '../skeleton/skeleton.component';
@@ -21,27 +22,26 @@ const Card = ({
   loading = false,
 }) => {
   const navigate = useNavigate();
-  const page = getPrimaryPage(data) || data?.pages?.[0];
+  const page = getEventPrimaryPage(data);
   const t = translations[language] || translations.bs;
-  const eventYear = Number(data?.year);
-  const currentYear = new Date().getFullYear();
-  const yearsAgo =
-    Number.isFinite(eventYear) && eventYear > 0 && eventYear <= currentYear
-      ? currentYear - eventYear
-      : null;
-  const category = categorizeEvent(data);
-  const categoryMeta = getCategoryClassification(data);
+  const yearsAgo = data?._yearsAgo ?? null;
+  const category = getEventCategory(data);
+  const categoryMeta = getEventCategoryMeta(data);
   const categoryDebugTitle =
     process.env.NODE_ENV !== 'production'
       ? `${categoryMeta.category} | ${categoryMeta.source} | ${categoryMeta.confidence}`
       : undefined;
   const categoryIcon = getCategoryIcon(category);
   const hasThumbnail = Boolean(page?.thumbnail?.source);
-  const imageSrc = hasThumbnail
-    ? page.thumbnail.source
-    : getNoImagePlaceholder(t.noImageFound || 'No image found', {
-        isDark: isDarkTheme,
-      });
+  const imageSrc = useMemo(
+    () =>
+      hasThumbnail
+        ? page.thumbnail.source
+        : getNoImagePlaceholder(t.noImageFound || 'No image found', {
+            isDark: isDarkTheme,
+          }),
+    [hasThumbnail, isDarkTheme, page?.thumbnail?.source, t.noImageFound],
+  );
   const imageLoading =
     !loading && typeof itemIndex === 'number' && itemIndex < 4 ? 'eager' : 'lazy';
   const imageFetchPriority =
@@ -89,7 +89,7 @@ const Card = ({
         {loading ? (
           <Skeleton width='70%' height='16px' />
         ) : (
-          page?.titles?.normalized
+          data?._title || page?.titles?.normalized
         )}
       </span>
 
@@ -103,7 +103,7 @@ const Card = ({
             <img
               className={`card-image-media ${hasThumbnail ? '' : 'is-placeholder'}`}
               src={imageSrc || noImage}
-              alt={page?.titles?.normalized || ''}
+              alt={data?._title || page?.titles?.normalized || ''}
               loading={imageLoading}
               fetchPriority={imageFetchPriority}
               decoding='async'
@@ -129,7 +129,11 @@ const Card = ({
         )}
       </div>
       <span className='desc'>
-        {loading ? <Skeleton width='45%' height='13px' /> : page?.description}
+        {loading ? (
+          <Skeleton width='45%' height='13px' />
+        ) : (
+          data?._description || page?.description
+        )}
       </span>
 
       <br />
@@ -174,7 +178,7 @@ const Card = ({
             <Skeleton width='92%' height='12px' />
           </>
         ) : (
-          page?.extract
+          data?._extract || page?.extract
         )}
       </small>
     </div>

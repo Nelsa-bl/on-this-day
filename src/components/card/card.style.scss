@@ -2,7 +2,8 @@
   border: 1px solid var(--color-light--2);
   padding: 20px;
   background-color: var(--color-light--3);
-  overflow: auto;
+  overflow: hidden;
+  contain: layout paint;
   cursor: pointer;
 
   h4 {

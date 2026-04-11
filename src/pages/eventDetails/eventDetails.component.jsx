@@ -2,14 +2,29 @@ import { useEffect, useMemo, useState } from 'react';
 import { useLocation, useNavigate, useParams } from 'react-router-dom';
 import { translations } from '../../utils/translations/translations';
 import {
-  categorizeEvent,
-  getCategoryClassification,
-  getPrimaryPage,
-} from '../../utils/events/eventMeta';
+  getEventCategory,
+  getEventCategoryMeta,
+  getEventPrimaryPage,
+} from '../../utils/events/normalizeEvents';
 import { getCategoryIcon } from '../../utils/events/categoryBadge';
 import { getNoImagePlaceholder } from '../../utils/images/placeholder';
 import Skeleton from '../../components/skeleton/skeleton.component';
 import './eventDetails.style.scss';
+
+const relatedArticlesCache = new Map();
+const yearArticleCache = new Map();
+
+const scheduleDeferredTask = (callback, timeout = 600) => {
+  if (typeof window === 'undefined') return { cancel: () => {} };
+
+  if ('requestIdleCallback' in window) {
+    const id = window.requestIdleCallback(callback, { timeout });
+    return { cancel: () => window.cancelIdleCallback(id) };
+  }
+
+  const id = window.setTimeout(callback, Math.min(timeout, 250));
+  return { cancel: () => window.clearTimeout(id) };
+};
 
 const EventDetails = ({
   language,
@@ -157,7 +172,7 @@ const EventDetails = ({
     routeMatchedPage ||
     wikiPage ||
     fallbackPage ||
-    getPrimaryPage(event) ||
+    getEventPrimaryPage(event) ||
     event?.pages?.[0] ||
     null;
   const relatedPages = useMemo(() => {
@@ -170,6 +185,7 @@ const EventDetails = ({
 
   useEffect(() => {
     let isMounted = true;
+    const controller = new AbortController();
     const title =
       wikiPage?.title ||
       page?.titles?.normalized ||
@@ -185,6 +201,16 @@ const EventDetails = ({
 
     setIsLoadingRelated(true);
     setRelatedArticles([]);
+    const cacheKey = `${resolvedLanguage}:${title}`;
+    const cached = relatedArticlesCache.get(cacheKey);
+    if (cached) {
+      setRelatedArticles(cached);
+      setIsLoadingRelated(false);
+      return () => {
+        isMounted = false;
+        controller.abort();
+      };
+    }
 
     const loadRelated = async () => {
       try {
@@ -193,7 +219,7 @@ const EventDetails = ({
         const searchUrl = `https://${lang}.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(
           baseTitle,
         )}&srlimit=4&format=json&origin=*`;
-        const searchRes = await fetch(searchUrl);
+        const searchRes = await fetch(searchUrl, { signal: controller.signal });
         const searchData = await searchRes.json();
         const searchResults = searchData?.query?.search || [];
         const candidates = searchResults.slice(1, 4);
@@ -203,7 +229,9 @@ const EventDetails = ({
             const summaryUrl = `https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(
               item.title,
             )}`;
-            const summaryRes = await fetch(summaryUrl);
+            const summaryRes = await fetch(summaryUrl, {
+              signal: controller.signal,
+            });
             const summary = await summaryRes.json();
             return {
               pageid: item.pageid,
@@ -219,17 +247,21 @@ const EventDetails = ({
           }),
         );
 
+        relatedArticlesCache.set(cacheKey, summaries);
         if (isMounted) setRelatedArticles(summaries);
-      } catch {
+      } catch (err) {
+        if (err?.name === 'AbortError') return;
         if (isMounted) setRelatedArticles([]);
       } finally {
         if (isMounted) setIsLoadingRelated(false);
       }
     };
 
-    loadRelated();
+    const scheduled = scheduleDeferredTask(loadRelated);
     return () => {
       isMounted = false;
+      controller.abort();
+      scheduled.cancel();
     };
   }, [resolvedLanguage, page, wikiPage]);
 
@@ -249,9 +281,9 @@ const EventDetails = ({
   const yearsAgo = Number.isFinite(numericYear)
     ? Math.max(0, new Date().getFullYear() - numericYear)
     : null;
-  const categoryKey = event ? categorizeEvent(event) : '';
+  const categoryKey = event ? getEventCategory(event) : '';
   const categoryMeta = event
-    ? getCategoryClassification(event)
+    ? getEventCategoryMeta(event)
     : { category: '', confidence: 0, source: '' };
   const categoryDebugTitle =
     process.env.NODE_ENV !== 'production'
@@ -282,6 +314,17 @@ const EventDetails = ({
       return;
     }
     let isMounted = true;
+    const controller = new AbortController();
+    const cacheKey = `${resolvedLanguage}:${targetYear}:${primaryTitle}:${yearArticleRefreshKey}`;
+    const cached = yearArticleCache.get(cacheKey);
+    if (cached) {
+      setRandomYearArticle(cached);
+      setIsLoadingYearArticle(false);
+      return () => {
+        isMounted = false;
+        controller.abort();
+      };
+    }
 
     const loadRandomYearArticle = async () => {
       try {
@@ -295,7 +338,7 @@ const EventDetails = ({
           const searchUrl = `https://${lang}.wikipedia.org/w/api.php?action=query&list=search&srsearch=${encodeURIComponent(
             String(targetYear),
           )}&srlimit=30&srnamespace=0&format=json&origin=*`;
-          const searchRes = await fetch(searchUrl);
+          const searchRes = await fetch(searchUrl, { signal: controller.signal });
           if (!searchRes.ok) continue;
           const searchData = await searchRes.json();
           const results = (searchData?.query?.search || []).filter((item) => {
@@ -309,7 +352,9 @@ const EventDetails = ({
           const summaryUrl = `https://${lang}.wikipedia.org/api/rest_v1/page/summary/${encodeURIComponent(
             randomResult.title,
           )}`;
-          const summaryRes = await fetch(summaryUrl);
+          const summaryRes = await fetch(summaryUrl, {
+            signal: controller.signal,
+          });
           if (!summaryRes.ok) continue;
           const summaryData = await summaryRes.json();
           const contentUrl =
@@ -319,25 +364,30 @@ const EventDetails = ({
           if (!contentUrl) continue;
 
           if (!isMounted) return;
-          setRandomYearArticle({
+          const article = {
             title: summaryData?.title || randomResult.title,
             extract: summaryData?.extract || randomResult?.snippet || '',
             contentUrl,
-          });
+          };
+          yearArticleCache.set(cacheKey, article);
+          setRandomYearArticle(article);
           return;
         }
 
         if (isMounted) setRandomYearArticle(null);
-      } catch {
+      } catch (err) {
+        if (err?.name === 'AbortError') return;
         if (isMounted) setRandomYearArticle(null);
       } finally {
         if (isMounted) setIsLoadingYearArticle(false);
       }
     };
 
-    loadRandomYearArticle();
+    const scheduled = scheduleDeferredTask(loadRandomYearArticle, 900);
     return () => {
       isMounted = false;
+      controller.abort();
+      scheduled.cancel();
     };
   }, [
     pageId,

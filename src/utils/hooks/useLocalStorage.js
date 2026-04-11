@@ -11,7 +11,11 @@ const useLocalStorage = (key, initialValue) => {
   });
 
   useEffect(() => {
-    localStorage.setItem(key, JSON.stringify(value));
+    try {
+      localStorage.setItem(key, JSON.stringify(value));
+    } catch {
+      // Ignore unavailable storage or quota issues.
+    }
   }, [key, value]);
 
   return useMemo(() => [value, setValue], [value]);
