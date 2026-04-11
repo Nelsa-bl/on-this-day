@@ -4,11 +4,16 @@ const EVENT_GROUPS = ['births', 'events', 'holidays'];
 
 const getCurrentYear = () => new Date().getFullYear();
 
-export const normalizeEvent = (event, currentYear = getCurrentYear()) => {
+export const normalizeEvent = (
+  event,
+  currentYear = getCurrentYear(),
+  eventType = '',
+) => {
   if (!event || event._normalizedEvent) return event;
 
-  const primaryPage = getPrimaryPage(event) || event?.pages?.[0] || null;
-  const categoryMeta = getCategoryClassification(event);
+  const eventWithType = eventType ? { ...event, _eventType: eventType } : event;
+  const primaryPage = getPrimaryPage(eventWithType) || eventWithType?.pages?.[0] || null;
+  const categoryMeta = getCategoryClassification(eventWithType);
   const category = categoryMeta.category || categorizeEvent(event);
   const eventYear = Number(event?.year);
   const yearsAgo =
@@ -17,7 +22,7 @@ export const normalizeEvent = (event, currentYear = getCurrentYear()) => {
       : null;
 
   return {
-    ...event,
+    ...eventWithType,
     _normalizedEvent: true,
     _primaryPage: primaryPage,
     _primaryPageId: primaryPage?.pageid != null ? String(primaryPage.pageid) : '',
@@ -38,7 +43,7 @@ export const normalizeEventsData = (data) => {
 
   EVENT_GROUPS.forEach((group) => {
     nextData[group] = (data?.[group] || []).map((event) =>
-      normalizeEvent(event, currentYear),
+      normalizeEvent(event, currentYear, group),
     );
   });
 

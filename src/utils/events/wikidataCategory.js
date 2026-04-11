@@ -79,6 +79,16 @@ const POLITICS_OCCUPATION_QIDS = new Set([
   'Q14212', // prime minister
 ]);
 const HUMAN_INSTANCE_QIDS = new Set(['Q5']); // human
+const SUBCLASS_PROPERTIES = ['P31', 'P106', 'P136', 'P641', 'P921', 'P361', 'P793'];
+
+const CATEGORY_QID_SETS = {
+  sports: [SPORTS_INSTANCE_QIDS, SPORTS_OCCUPATION_QIDS],
+  war: [WAR_INSTANCE_QIDS],
+  culture: [CULTURE_INSTANCE_QIDS, CULTURE_OCCUPATION_QIDS],
+  politics: [POLITICS_INSTANCE_QIDS, POLITICS_OCCUPATION_QIDS],
+  science: [SCIENCE_INSTANCE_QIDS, SCIENCE_OCCUPATION_QIDS],
+  discovery: [DISCOVERY_INSTANCE_QIDS],
+};
 
 const chunk = (items, size) => {
   const result = [];
@@ -114,25 +124,57 @@ const claimValues = (entity, propertyId) => {
     .filter(Boolean);
 };
 
-const hasAny = (entity, propertyId, expectedIds) => {
+const hasAnyOrSubclass = (entity, propertyId, expectedIds, subclassById = {}) => {
   const values = claimValues(entity, propertyId);
-  return values.some((id) => expectedIds.has(id));
+  return values.some((id) => {
+    if (expectedIds.has(id)) return true;
+    return (subclassById[id] || []).some((parentId) => expectedIds.has(parentId));
+  });
+};
+
+const hasAnyCategorySignal = (entity, category, subclassById = {}) => {
+  const expectedSets = CATEGORY_QID_SETS[category] || [];
+  return SUBCLASS_PROPERTIES.some((propertyId) =>
+    expectedSets.some((expectedIds) =>
+      hasAnyOrSubclass(entity, propertyId, expectedIds, subclassById),
+    ),
+  );
 };
 
 const hasClaim = (entity, propertyId) =>
   Array.isArray(entity?.claims?.[propertyId]) &&
   entity.claims[propertyId].length > 0;
 
-const inferCategoryFromEntity = (entity) => {
+const inferCategoryFromEntity = (entity, subclassById = {}) => {
   if (!entity) return null;
-  const isHuman = hasAny(entity, 'P31', HUMAN_INSTANCE_QIDS);
+  const isHuman = hasAnyOrSubclass(entity, 'P31', HUMAN_INSTANCE_QIDS, subclassById);
   const hasOccupation = hasClaim(entity, 'P106');
   const hasSport = hasClaim(entity, 'P641');
   const hasConflict = hasClaim(entity, 'P607');
-  const hasSportsOccupation = hasAny(entity, 'P106', SPORTS_OCCUPATION_QIDS);
-  const hasScienceOccupation = hasAny(entity, 'P106', SCIENCE_OCCUPATION_QIDS);
-  const hasCultureOccupation = hasAny(entity, 'P106', CULTURE_OCCUPATION_QIDS);
-  const hasPoliticsOccupation = hasAny(entity, 'P106', POLITICS_OCCUPATION_QIDS);
+  const hasSportsOccupation = hasAnyOrSubclass(
+    entity,
+    'P106',
+    SPORTS_OCCUPATION_QIDS,
+    subclassById,
+  );
+  const hasScienceOccupation = hasAnyOrSubclass(
+    entity,
+    'P106',
+    SCIENCE_OCCUPATION_QIDS,
+    subclassById,
+  );
+  const hasCultureOccupation = hasAnyOrSubclass(
+    entity,
+    'P106',
+    CULTURE_OCCUPATION_QIDS,
+    subclassById,
+  );
+  const hasPoliticsOccupation = hasAnyOrSubclass(
+    entity,
+    'P106',
+    POLITICS_OCCUPATION_QIDS,
+    subclassById,
+  );
   const hasPosition = hasClaim(entity, 'P39');
 
   // For people, occupation and held office are stronger signals than generic sport tags.
@@ -146,7 +188,7 @@ const inferCategoryFromEntity = (entity) => {
   }
 
   if (
-    hasAny(entity, 'P31', SPORTS_INSTANCE_QIDS) ||
+    hasAnyCategorySignal(entity, 'sports', subclassById) ||
     hasSport ||
     hasSportsOccupation
   ) {
@@ -154,21 +196,21 @@ const inferCategoryFromEntity = (entity) => {
   }
 
   if (
-    hasAny(entity, 'P31', WAR_INSTANCE_QIDS) ||
+    hasAnyCategorySignal(entity, 'war', subclassById) ||
     (!isHuman && hasConflict) // conflict
   ) {
     return 'war';
   }
 
   if (
-    hasAny(entity, 'P31', SCIENCE_INSTANCE_QIDS) ||
+    hasAnyCategorySignal(entity, 'science', subclassById) ||
     hasScienceOccupation
   ) {
     return 'science';
   }
 
   if (
-    hasAny(entity, 'P31', CULTURE_INSTANCE_QIDS) ||
+    hasAnyCategorySignal(entity, 'culture', subclassById) ||
     hasCultureOccupation ||
     hasClaim(entity, 'P136') // genre
   ) {
@@ -176,7 +218,7 @@ const inferCategoryFromEntity = (entity) => {
   }
 
   if (
-    hasAny(entity, 'P31', POLITICS_INSTANCE_QIDS) ||
+    hasAnyCategorySignal(entity, 'politics', subclassById) ||
     hasPoliticsOccupation
   ) {
     return 'politics';
@@ -191,7 +233,7 @@ const inferCategoryFromEntity = (entity) => {
   }
 
   if (
-    hasAny(entity, 'P31', DISCOVERY_INSTANCE_QIDS) ||
+    hasAnyCategorySignal(entity, 'discovery', subclassById) ||
     hasClaim(entity, 'P61') // discoverer or inventor
   ) {
     return 'discovery';
@@ -229,6 +271,7 @@ const fetchEntityCategoryMap = async ({ entityIds, signal }) => {
   if (!entityIds.length) return {};
   const chunks = chunk(entityIds, ENTITY_IDS_CHUNK_SIZE);
   const categoryByEntityId = {};
+  const entitiesById = {};
 
   for (const ids of chunks) {
     const url = `https://www.wikidata.org/w/api.php?action=wbgetentities&ids=${ids.join(
@@ -239,11 +282,38 @@ const fetchEntityCategoryMap = async ({ entityIds, signal }) => {
     const payload = await response.json();
     const entities = payload?.entities || {};
 
+    Object.assign(entitiesById, entities);
+  }
+
+  const relatedIds = new Set();
+  Object.values(entitiesById).forEach((entity) => {
+    SUBCLASS_PROPERTIES.forEach((propertyId) => {
+      claimValues(entity, propertyId).forEach((id) => relatedIds.add(id));
+    });
+  });
+
+  const subclassById = {};
+  Object.entries(entitiesById).forEach(([id, entity]) => {
+    if (relatedIds.has(id)) subclassById[id] = claimValues(entity, 'P279');
+  });
+  const missingRelatedIds = Array.from(relatedIds).filter((id) => !entitiesById[id]);
+  for (const ids of chunk(missingRelatedIds, ENTITY_IDS_CHUNK_SIZE)) {
+    const url = `https://www.wikidata.org/w/api.php?action=wbgetentities&ids=${ids.join(
+      '|',
+    )}&props=claims&format=json&origin=*`;
+    const response = await fetch(url, { signal });
+    if (!response.ok) continue;
+    const payload = await response.json();
+    const entities = payload?.entities || {};
     Object.entries(entities).forEach(([id, entity]) => {
-      const category = inferCategoryFromEntity(entity);
-      if (category) categoryByEntityId[id] = category;
+      subclassById[id] = claimValues(entity, 'P279');
     });
   }
+
+  Object.entries(entitiesById).forEach(([id, entity]) => {
+    const category = inferCategoryFromEntity(entity, subclassById);
+    if (category) categoryByEntityId[id] = category;
+  });
 
   return categoryByEntityId;
 };

@@ -564,7 +564,7 @@ const EventDetails = ({
                 className='event-details__hero'
                 alt={primaryTitle}
                 src={primaryImage}
-                fetchPriority='high'
+                fetchpriority='high'
                 decoding='async'
               />
             )}

@@ -1,3 +1,5 @@
+import { getCategoryOverride } from './categoryOverrides';
+
 export const CATEGORY_OPTIONS = [
   'all',
   'science',
@@ -6,6 +8,7 @@ export const CATEGORY_OPTIONS = [
   'culture',
   'politics',
   'discovery',
+  'history',
 ];
 
 const COUNTRY_LIKE_WORDS = [
@@ -365,6 +368,17 @@ const CATEGORY_KEYWORDS_EXTRA = {
     { term: 'laboratorija', weight: 2.1 },
     { term: 'akademik', weight: 2.0 },
     { term: 'profesor', weight: 1.8 },
+    { term: 'spaceflight', weight: 2.4 },
+    { term: 'space flight', weight: 2.4 },
+    { term: 'moon landing', weight: 2.6 },
+    { term: 'astronaut', weight: 2.4 },
+    { term: 'cosmonaut', weight: 2.4 },
+    { term: 'svemirska misija', weight: 2.5 },
+    { term: 'svemirski let', weight: 2.5 },
+    { term: 'slijetanje na mjesec', weight: 2.6 },
+    { term: 'sletanje na mesec', weight: 2.6 },
+    { term: 'astronaut', weight: 2.4 },
+    { term: 'kosmonaut', weight: 2.4 },
   ],
   war: [
     { term: 'civil war', weight: 2.8 },
@@ -393,6 +407,21 @@ const CATEGORY_KEYWORDS_EXTRA = {
     { term: 'takmicenje', weight: 2.0 },
     { term: 'takmicar', weight: 2.2 },
     { term: 'takmicarka', weight: 2.2 },
+    { term: 'footballer', weight: 3.1 },
+    { term: 'basketball player', weight: 3.1 },
+    { term: 'tennis player', weight: 3.0 },
+    { term: 'professional footballer', weight: 3.3 },
+    { term: 'professional athlete', weight: 3.1 },
+    { term: 'fudbaler', weight: 3.2 },
+    { term: 'fudbalerka', weight: 3.2 },
+    { term: 'nogometas', weight: 3.2 },
+    { term: 'nogometasica', weight: 3.2 },
+    { term: 'kosarkas', weight: 3.2 },
+    { term: 'kosarkasica', weight: 3.2 },
+    { term: 'teniser', weight: 3.0 },
+    { term: 'teniserka', weight: 3.0 },
+    { term: 'rukometas', weight: 3.0 },
+    { term: 'rukometasica', weight: 3.0 },
   ],
   culture: [
     { term: 'drama', weight: 2.1 },
@@ -556,7 +585,173 @@ const CATEGORY_PRIORITY = [
   'science',
   'culture',
   'discovery',
+  'history',
 ];
+
+const FALLBACK_MIN_CONFIDENCE = 0.58;
+const FALLBACK_MIN_SCORE = 1.5;
+const FALLBACK_MIN_MARGIN = 0.65;
+
+const TYPE_AWARE_BOOSTS = {
+  births: {
+    sports: [
+      'footballer',
+      'basketball player',
+      'tennis player',
+      'athlete',
+      'sportsperson',
+      'fudbaler',
+      'fudbalerka',
+      'nogometas',
+      'nogometasica',
+      'kosarkas',
+      'kosarkasica',
+      'teniser',
+      'teniserka',
+      'sportista',
+      'sportas',
+      'atleticar',
+      'atleticarka',
+    ],
+    culture: [
+      'actor',
+      'actress',
+      'singer',
+      'writer',
+      'musician',
+      'film director',
+      'composer',
+      'glumac',
+      'glumica',
+      'pjevac',
+      'pevac',
+      'pisac',
+      'spisatelj',
+      'spisateljica',
+      'muzicar',
+      'reditelj',
+      'reziser',
+    ],
+    science: [
+      'scientist',
+      'physicist',
+      'chemist',
+      'biologist',
+      'astronomer',
+      'engineer',
+      'inventor',
+      'naucnik',
+      'znanstvenik',
+      'fizicar',
+      'hemicar',
+      'biolog',
+      'astronom',
+      'inzenjer',
+      'izumitelj',
+    ],
+    politics: [
+      'politician',
+      'president',
+      'prime minister',
+      'diplomat',
+      'statesman',
+      'politicar',
+      'predsjednik',
+      'premijer',
+      'premijerka',
+      'diplomat',
+      'drzavnik',
+    ],
+    war: [
+      'soldier',
+      'general',
+      'commander',
+      'military officer',
+      'vojnik',
+      'general',
+      'komandant',
+      'vojni oficir',
+    ],
+  },
+  events: {
+    science: [
+      'space mission',
+      'spaceflight',
+      'space flight',
+      'moon landing',
+      'launched from',
+      'astronomy',
+      'spacecraft',
+      'svemirska misija',
+      'svemirski let',
+      'slijetanje na mjesec',
+      'sletanje na mesec',
+      'svemirska letjelica',
+      'svemirska letilica',
+      'astronomija',
+    ],
+    discovery: [
+      'patent',
+      'patented',
+      'invented',
+      'invention',
+      'discovered',
+      'discovery',
+      'patentirao',
+      'patentirana',
+      'izumio',
+      'izumila',
+      'izum',
+      'otkrio',
+      'otkrila',
+      'otkriven',
+    ],
+  },
+  holidays: {
+    politics: [
+      'independence day',
+      'national day',
+      'constitution day',
+      'statehood day',
+      'dan nezavisnosti',
+      'dan drzavnosti',
+      'dan republike',
+      'dan ustava',
+    ],
+    war: [
+      'memorial day',
+      'remembrance day',
+      'victory day',
+      'armistice day',
+      'dan sjecanja',
+      'dan secanja',
+      'dan pobjede',
+      'dan pobede',
+      'primirje',
+    ],
+    culture: [
+      'festival',
+      'religious holiday',
+      'christmas',
+      'easter',
+      'ramadan',
+      'eid',
+      'bozic',
+      'uskrs',
+      'vaskrs',
+      'bajram',
+      'festival',
+      'praznik',
+    ],
+    history: [
+      'holiday',
+      'observance',
+      'praznik',
+      'obiljezavanje',
+      'obelezavanje',
+    ],
+  },
+};
 
 const escapeRegExp = (value) =>
   value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
@@ -652,18 +847,17 @@ export function getPrimaryPage(event) {
 
 function normalizeEventText(event) {
   const page = getPrimaryPage(event) || event?.pages?.[0];
-  return [
+  return normalizeForMatch([
     event?.text || '',
     page?.description || '',
     page?.extract || '',
     page?.titles?.normalized || '',
   ]
-    .join(' ')
-    .toLowerCase();
+    .join(' '));
 }
 
 const getPatternRegex = (term) => {
-  const escaped = escapeRegExp(term.trim());
+  const escaped = escapeRegExp(normalizeForMatch(term));
   if (!escaped) return null;
   return new RegExp(
     `(?:^|[^\\p{L}\\p{N}_])${escaped}(?=[^\\p{L}\\p{N}_]|$)`,
@@ -726,7 +920,27 @@ const applyGuardAdjustments = (scores, text) => {
   });
 };
 
-const computeFallbackScores = (text) => {
+const applyTypeAwareBoosts = (scores, text, eventType) => {
+  const boosts = TYPE_AWARE_BOOSTS[eventType];
+  if (!boosts) return;
+
+  Object.entries(boosts).forEach(([category, terms]) => {
+    const hits = countTermMatches(text, terms);
+    if (!hits) return;
+    scores[category] += hits * (eventType === 'births' ? 3.2 : 2.4);
+  });
+
+  if (eventType === 'births') {
+    const top = Object.entries(scores).sort((a, b) => b[1] - a[1])[0];
+    if (top?.[1] >= 3.2) {
+      Object.keys(scores).forEach((category) => {
+        if (category !== top[0]) scores[category] *= 0.82;
+      });
+    }
+  }
+};
+
+const computeFallbackScores = (text, eventType = '') => {
   const scores = {
     science: 0,
     war: 0,
@@ -734,6 +948,7 @@ const computeFallbackScores = (text) => {
     culture: 0,
     politics: 0,
     discovery: 0,
+    history: 0,
   };
 
   Object.entries(CATEGORY_KEYWORDS).forEach(([category, entries]) => {
@@ -749,6 +964,7 @@ const computeFallbackScores = (text) => {
     });
   });
 
+  applyTypeAwareBoosts(scores, text, eventType);
   applyGuardAdjustments(scores, text);
 
   return scores;
@@ -763,7 +979,18 @@ const confidenceFromScores = ({ topScore, secondScore }) => {
 };
 
 export function getCategoryClassification(event) {
-  const primaryPageId = String(getPrimaryPage(event)?.pageid || '');
+  const primaryPage = getPrimaryPage(event);
+  const primaryPageId = String(primaryPage?.pageid || '');
+  const override = getCategoryOverride(event, primaryPage);
+  if (override && CATEGORY_OPTIONS.includes(override)) {
+    return {
+      category: override,
+      confidence: 1,
+      source: 'manual-override',
+      scores: null,
+    };
+  }
+
   if (
     event?._derivedCategory &&
     CATEGORY_OPTIONS.includes(event._derivedCategory) &&
@@ -779,7 +1006,7 @@ export function getCategoryClassification(event) {
   }
 
   const text = normalizeEventText(event);
-  const scores = computeFallbackScores(text);
+  const scores = computeFallbackScores(text, event?._eventType || '');
   const ranked = Object.entries(scores)
     .sort((a, b) => b[1] - a[1])
     .sort((a, b) => {
@@ -787,21 +1014,36 @@ export function getCategoryClassification(event) {
       return CATEGORY_PRIORITY.indexOf(a[0]) - CATEGORY_PRIORITY.indexOf(b[0]);
     });
 
-  const [topCategory = 'discovery', topScore = 0] = ranked[0] || [];
+  const [topCategory = 'history', topScore = 0] = ranked[0] || [];
   const secondScore = ranked[1]?.[1] || 0;
+  const confidence = confidenceFromScores({ topScore, secondScore });
+  const margin = topScore - secondScore;
 
   if (topScore <= 0) {
     return {
-      category: 'discovery',
+      category: 'history',
       confidence: 0.34,
-      source: 'fallback-default',
+      source: 'fallback-history-default',
+      scores,
+    };
+  }
+
+  if (
+    topScore < FALLBACK_MIN_SCORE ||
+    confidence < FALLBACK_MIN_CONFIDENCE ||
+    margin < FALLBACK_MIN_MARGIN
+  ) {
+    return {
+      category: 'history',
+      confidence,
+      source: 'fallback-low-confidence',
       scores,
     };
   }
 
   return {
     category: topCategory,
-    confidence: confidenceFromScores({ topScore, secondScore }),
+    confidence,
     source: 'fallback-scored',
     scores,
   };

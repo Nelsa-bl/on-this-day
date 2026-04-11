@@ -105,7 +105,7 @@ const Card = ({
               src={imageSrc || noImage}
               alt={data?._title || page?.titles?.normalized || ''}
               loading={imageLoading}
-              fetchPriority={imageFetchPriority}
+              fetchpriority={imageFetchPriority}
               decoding='async'
             />
             <span
